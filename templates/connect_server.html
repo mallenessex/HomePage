@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="connect-server-page">
+    <div class="connect-card">
+        <h2>Connect to Another Server</h2>
+        <p class="connect-subtitle">Enter the URL and Server ID of another HOMEPAGE server to connect.</p>
+
+        <div class="connect-field">
+            <label for="connectServerUrl">Server URL</label>
+            <input type="text" id="connectServerUrl" placeholder="https://example.com:8443" autocomplete="off">
+        </div>
+
+        <div class="connect-field">
+            <label for="connectServerId">Target Server ID</label>
+            <input type="text" id="connectServerId" placeholder="hex server ID from the other server's admin" autocomplete="off">
+        </div>
+
+        <div class="connect-field">
+            <label class="connect-muted">Effective URL</label>
+            <span id="connectEffectiveUrl" class="connect-effective-url">(unset)</span>
+        </div>
+
+        <div id="connectStatus" class="connect-status hidden"></div>
+
+        <div class="connect-actions">
+            <button id="btnVerifyConnect" class="btn-primary">Verify &amp; Connect</button>
+        </div>
+
+        <p class="connect-help">
+            The remote server handles its own login and account creation.
+            You just need the URL and Server ID — ask the server admin for these values.
+        </p>
+    </div>
+</div>
+
+<style>
+    .connect-server-page {
+        display: flex;
+        justify-content: center;
+        padding: 40px 20px;
+    }
+    .connect-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 32px 36px;
+        max-width: 560px;
+        width: 100%;
+        box-shadow: var(--shadow-lg);
+    }
+    .connect-card h2 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .connect-subtitle {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        margin-bottom: 24px;
+    }
+    .connect-field {
+        margin-bottom: 16px;
+    }
+    .connect-field label {
+        display: block;
+        font-weight: 600;
+        font-size: 0.85rem;
+        margin-bottom: 6px;
+        color: var(--text);
+    }
+    .connect-field label.connect-muted {
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+    .connect-field input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.9rem;
+        background: var(--bg);
+        color: var(--text);
+        outline: none;
+        transition: border-color 0.15s;
+    }
+    .connect-field input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+    .connect-effective-url {
+        font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        padding: 8px 0 0;
+        display: block;
+    }
+    .connect-status {
+        padding: 10px 14px;
+        border-radius: var(--radius-sm);
+        font-size: 0.85rem;
+        margin-bottom: 12px;
+    }
+    .connect-status.success {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+    .connect-status.error {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+    .connect-status.hidden { display: none; }
+    .connect-actions {
+        display: flex;
+        gap: 10px;
+        margin: 20px 0 16px;
+    }
+    .connect-help {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        line-height: 1.5;
+        margin: 0;
+    }
+</style>
+
+<script>
+(function () {
+    const urlInput = document.getElementById('connectServerUrl');
+    const idInput = document.getElementById('connectServerId');
+    const effectiveEl = document.getElementById('connectEffectiveUrl');
+    const statusEl = document.getElementById('connectStatus');
+    const btnConnect = document.getElementById('btnVerifyConnect');
+
+    function normalizeUrl(raw) {
+        const v = (raw || '').trim().replace(/\/+$/, '');
+        if (!v) return '';
+        try {
+            const u = new URL(v);
+            if (!['http:', 'https:'].includes(u.protocol) || !u.hostname) return v;
+            let base = u.protocol + '//' + u.hostname;
+            if (u.port) base += ':' + u.port;
+            return base;
+        } catch { return v; }
+    }
+
+    function updateEffective() {
+        const norm = normalizeUrl(urlInput.value);
+        effectiveEl.textContent = norm || '(unset)';
+    }
+
+    function showStatus(msg, type) {
+        statusEl.textContent = msg;
+        statusEl.className = 'connect-status ' + type;
+    }
+
+    urlInput.addEventListener('input', updateEffective);
+
+    btnConnect.addEventListener('click', async function () {
+        const url = urlInput.value.trim();
+        const tid = idInput.value.trim().toLowerCase();
+
+        if (!url) { showStatus('Server URL is required.', 'error'); return; }
+        if (!tid) { showStatus('Target Server ID is required.', 'error'); return; }
+
+        showStatus('Verifying server identity…', '');
+        btnConnect.disabled = true;
+
+        try {
+            const norm = normalizeUrl(url);
+            // Try /.well-known/server-id first, then /.well-known/connect-profile
+            let serverId = null;
+            try {
+                const res = await fetch(norm + '/.well-known/server-id');
+                if (res.ok) {
+                    const data = await res.json();
+                    serverId = (data.server_id || '').trim().toLowerCase();
+                }
+            } catch (_) {}
+
+            if (!serverId) {
+                try {
+                    const res = await fetch(norm + '/.well-known/connect-profile');
+                    if (res.ok) {
+                        const data = await res.json();
+                        serverId = (data.server_id || '').trim().toLowerCase();
+                    }
+                } catch (_) {}
+            }
+
+            if (!serverId) {
+                showStatus('Could not reach the server or read its identity.', 'error');
+                return;
+            }
+
+            if (serverId !== tid) {
+                showStatus('Server ID mismatch! Expected: ' + tid + ', got: ' + serverId, 'error');
+                return;
+            }
+
+            showStatus('Verified! Redirecting to server…', 'success');
+            setTimeout(function () {
+                window.open(norm, '_blank');
+            }, 800);
+
+        } catch (e) {
+            showStatus('Connection failed: ' + e.message, 'error');
+        } finally {
+            btnConnect.disabled = false;
+        }
+    });
+})();
+</script>
+{% endblock %}

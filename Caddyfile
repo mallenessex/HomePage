@@ -1,0 +1,22 @@
+{
+    http_port {$APP_HTTP_PORT}
+    https_port {$APP_HTTPS_PORT}
+    default_sni localhost
+    servers {
+        trusted_proxies static private_ranges
+    }
+}
+
+http://127.0.0.1:{$APP_HTTP_PORT}, http://localhost:{$APP_HTTP_PORT}, http://{$APP_DOMAIN}:{$APP_HTTP_PORT}, http://{$APP_LAN_IP}:{$APP_HTTP_PORT}, http://:{$APP_HTTP_PORT} {
+    redir https://{host}:{$APP_HTTPS_PORT}{uri} permanent
+}
+
+https://127.0.0.1:{$APP_HTTPS_PORT}, https://localhost:{$APP_HTTPS_PORT}, https://{$APP_DOMAIN}:{$APP_HTTPS_PORT}, https://{$APP_LAN_IP}:{$APP_HTTPS_PORT}, https://:{$APP_HTTPS_PORT} {
+    # Local/self-hosted default: internal CA certificate.
+    tls {
+        issuer internal
+        protocols tls1.2 tls1.3
+    }
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8000
+}

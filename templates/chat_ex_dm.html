@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card" style="max-width: 900px; margin: 0 auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px;">
+        <div>
+            <h2 style="margin:0;">Direct Message</h2>
+            <p style="margin:4px 0 0 0; color:var(--text-muted);">
+                Conversation with <a href="/users/{{ target_user.username }}">@{{ target_user.username }}</a>
+            </p>
+        </div>
+        <a href="/chat-ex" class="btn-outline">Back to Chat</a>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:12px; padding:12px; max-height:60vh; overflow-y:auto; background:var(--bg);">
+        {% for m in messages %}
+        <div style="margin-bottom:10px; padding:10px; border-radius:10px; background:var(--card); border:1px solid var(--border);">
+            <div style="font-size:0.85rem; color:var(--text-muted);">
+                <strong>{{ 'You' if m.sender_user_id == user.id else ('@' ~ target_user.username) }}</strong>
+                <span style="margin-left:8px;">{{ m.created_at }}</span>
+            </div>
+            <div style="margin-top:6px; white-space:pre-wrap;">{{ m.body }}</div>
+        </div>
+        {% endfor %}
+        {% if not messages %}
+        <p style="color:var(--text-muted);">No messages yet.</p>
+        {% endif %}
+    </div>
+
+    <form action="/chat-ex/dm/{{ target_user.username }}/send" method="POST" style="margin-top:12px; display:grid; gap:8px;">
+        <textarea name="content" rows="4" placeholder="Write a private message..." required></textarea>
+        <button type="submit" class="btn-primary">Send</button>
+    </form>
+</div>
+{% endblock %}
+

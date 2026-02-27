@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Public Timeline</h2>
+    <p>Everything happening on your local node and federated network.</p>
+</div>
+
+<!-- New Post Card -->
+{% if user %}
+<div id="post-box" class="card post-form">
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+        <div class="user-avatar" style="margin-right: 0;">
+            {% if user.avatar_url %}
+            <img src="{{ user.avatar_url }}" alt="{{ user.username }}"
+                style="width: 100%; height: 100%; object-fit: cover;">
+            {% else %}
+            {{ user.username[0].upper() }}
+            {% endif %}
+        </div>
+        <h3 style="margin: 0;">Hello, {{ user.display_name or user.username }}!</h3>
+    </div>
+    <form action="/posts/submit" method="POST" enctype="multipart/form-data">
+        <textarea name="body" placeholder="Share a thought with your family and friends..." required></textarea>
+        <div class="mood-row">
+            <label for="post-mood">Mood</label>
+            <select id="post-mood" name="mood">
+                <option value="">No mood</option>
+                {% for mood in mood_options %}
+                <option value="{{ mood }}">{{ mood }}</option>
+                {% endfor %}
+                <option value="{{ custom_mood_value }}">custom...</option>
+            </select>
+            <input id="post-custom-mood" type="text" name="custom_mood" placeholder="Enter custom mood"
+                maxlength="64" style="display: none;">
+        </div>
+        <div class="form-footer">
+            <div class="input-file-wrapper">
+                <label for="image-upload" class="btn-outline"
+                    style="cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    Attach Image
+                </label>
+                <input type="file" id="image-upload" name="image" accept="image/*" style="display: none;"
+                    onchange="document.getElementById('file-chosen').textContent = this.files[0].name">
+                <span id="file-chosen" style="font-size: 0.8rem; color: var(--text-muted); margin-left: 10px;"></span>
+            </div>
+            <button type="submit" class="btn-primary">Post</button>
+        </div>
+    </form>
+</div>
+{% else %}
+<div class="card" style="text-align: center; border-style: dashed;">
+    <p>Please <a href="/auth/login">Login</a> or <a href="/auth/register">Join</a> to share your thoughts!</p>
+</div>
+{% endif %}
+
+<div class="timeline">
+    {% for post in posts %}
+    <article class="post card" data-post-id="{{ post.id }}">
+        <div class="post-header">
+            <div class="user-avatar">
+                {% if post.author and post.author.avatar_url %}
+                <img src="{{ post.author.avatar_url }}" alt="{{ post.author.username }}"
+                    style="width: 100%; height: 100%; object-fit: cover;">
+                {% elif post.author %}
+                {{ post.author.username[0].upper() }}
+                {% else %}
+                ?
+                {% endif %}
+            </div>
+            <div class="post-meta">
+                <span class="user-name">{{ (post.author.display_name or post.author.username) if post.author else "Remote User" }}</span>
+                <span class="post-date">{{ post.created_at.strftime('%b %d, %H:%M') }}</span>
+            </div>
+        </div>
+
+        {% if post.title %}
+        <h3 class="post-title">{{ post.title }}</h3>
+        {% endif %}
+
+        <div class="post-content">
+            {{ post.body }}
+        </div>
+        {% if post.mood %}
+        <div class="post-mood">Mood: {{ post.mood }}</div>
+        {% endif %}
+
+        {% if post.media_path %}
+        <div class="post-media" style="margin-top: 15px;">
+            {% if post.media_type and post.media_type.startswith('image/') %}
+            <img src="/media/{{ post.media_path }}" alt="Post attachment"
+                style="max-width: 100%; border-radius: 12px; display: block; border: 1px solid var(--border);">
+            {% else %}
+            <a href="/media/{{ post.media_path }}" class="media-link">View Attachment</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="post-footer">
+            <div class="reactions-row">
+                {% if user %}
+                <form action="/posts/{{ post.id }}/react" method="POST" class="reaction-form">
+                    <select name="emoji" class="reaction-select" onchange="if(this.value){ this.form.submit(); }">
+                        <option value="">Add Reaction</option>
+                        {% for rx in reaction_options %}
+                        <option value="{{ rx }}">{{ rx }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                {% endif %}
+
+                {% for rx in reaction_options %}
+                {% set rx_count = reaction_counts.get(post.id, {}).get(rx, 0) %}
+                {% set mine = user and (rx in my_reactions.get(post.id, [])) %}
+                {% if user %}
+                <form action="/posts/{{ post.id }}/react" method="POST" class="reaction-form">
+                    <input type="hidden" name="emoji" value="{{ rx }}">
+                    <button type="submit" class="reaction-btn {% if mine %}mine{% endif %}"
+                        data-emoji="{{ rx }}"
+                        {% if rx_count == 0 %}style="display:none;"{% endif %}
+                        title="{% if mine %}Remove your reaction{% else %}Add reaction{% endif %}">
+                        <span>{{ rx }}</span>
+                        <span>{{ rx_count }}</span>
+                    </button>
+                </form>
+                {% else %}
+                {% if rx_count > 0 %}
+                <span class="reaction-btn">
+                    <span>{{ rx }}</span>
+                    <span>{{ rx_count }}</span>
+                </span>
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+
+                {% if user and post.author_id == user.id %}
+                <form action="/posts/{{ post.id }}/delete" method="POST" class="delete-item-form">
+                    <button type="submit" class="delete-icon-btn" title="Delete post"
+                        onclick="return confirm('Delete this post?');">
+                        🗑️
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% if post.signature %}
+            <div class="signature">Signed: {{ post.signature[:12] }}...</div>
+            {% else %}
+            <div class="signature">Unsigned</div>
+            {% endif %}
+        </div>
+    </article>
+    {% else %}
+    <div class="empty-state card">
+        <p>No posts yet. Be the first to share something!</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% block extra_head %}
+<style>
+    .mood-row {
+        margin-top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .mood-row label {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        font-weight: 600;
+    }
+
+    .mood-row select,
+    .mood-row input[type="text"] {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: var(--card);
+        color: var(--text);
+        font-size: 0.9rem;
+    }
+
+    .mood-row select {
+        min-width: 220px;
+    }
+
+    .mood-row input[type="text"] {
+        min-width: 220px;
+    }
+
+    .post-mood {
+        margin-top: 10px;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        font-style: italic;
+    }
+
+    .post-form .form-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 15px;
+    }
+
+    .input-file-wrapper {
+        display: flex;
+        align-items: center;
+    }
+
+    .post-media img {
+        transition: transform 0.2s ease;
+    }
+
+    .post-media img:hover {
+        transform: scale(1.01);
+    }
+
+    .reactions-row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .reaction-form {
+        margin: 0;
+    }
+
+    .delete-item-form {
+        margin: 0 0 0 auto;
+        display: inline-flex;
+    }
+
+    .reaction-btn {
+        border: 1px solid var(--border);
+        background: var(--bg);
+        border-radius: 999px;
+        padding: 4px 9px;
+        font-size: 0.85rem;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--text);
+        cursor: pointer;
+    }
+
+    .reaction-btn.mine {
+        border-color: var(--primary);
+        background: rgba(79, 70, 229, 0.1);
+        font-weight: 700;
+    }
+
+    .reaction-select {
+        min-width: 140px;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--card);
+        color: var(--text);
+    }
+
+    .delete-icon-btn {
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-muted);
+        border-radius: 8px;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.85rem;
+        line-height: 1;
+    }
+
+    .delete-icon-btn:hover {
+        color: #dc2626;
+        border-color: #dc2626;
+        background: rgba(220, 38, 38, 0.08);
+    }
+</style>
+<script>
+    (function () {
+        const moodSelect = document.getElementById('post-mood');
+        const customMoodInput = document.getElementById('post-custom-mood');
+        const customMoodValue = "{{ custom_mood_value }}";
+
+        function syncMoodCustomInput() {
+            if (!moodSelect || !customMoodInput) return;
+            const isCustom = moodSelect.value === customMoodValue;
+            customMoodInput.style.display = isCustom ? "" : "none";
+            customMoodInput.required = isCustom;
+            if (!isCustom) customMoodInput.value = "";
+        }
+
+        if (moodSelect) {
+            moodSelect.addEventListener('change', syncMoodCustomInput);
+            syncMoodCustomInput();
+        }
+
+        async function submitReaction(form) {
+            const fd = new FormData(form);
+            const emoji = fd.get('emoji');
+            if (!emoji) return;
+            const article = form.closest('[data-post-id]');
+            if (!article) return;
+            const postId = article.getAttribute('data-post-id');
+            const res = await fetch(form.action, {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data || !data.ok) return;
+            if (String(data.post_id) !== String(postId)) return;
+
+            const btn = article.querySelector(`.reaction-btn[data-emoji="${CSS.escape(data.emoji)}"]`);
+            if (!btn) return;
+            const countSpan = btn.querySelector('span:last-child');
+            if (countSpan) countSpan.textContent = String(data.count);
+            if (data.count > 0) {
+                btn.style.display = '';
+            } else {
+                btn.style.display = 'none';
+            }
+            if (data.reacted) btn.classList.add('mine');
+            else btn.classList.remove('mine');
+
+            const select = form.querySelector('select[name="emoji"]');
+            if (select) select.value = '';
+        }
+
+        document.addEventListener('submit', function (e) {
+            const form = e.target;
+            if (!form.classList || !form.classList.contains('reaction-form')) return;
+            e.preventDefault();
+            submitReaction(form).catch(() => { });
+        });
+    })();
+</script>
+{% endblock %}
+{% endblock %}

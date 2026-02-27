@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Voice Chat</h2>
+    <p>WebRTC rooms with encrypted media transport (DTLS-SRTP).</p>
+</div>
+
+{% if not user %}
+<div class="card">
+    <h3>Login Required</h3>
+    <p>You need to sign in before joining voice rooms.</p>
+    <a class="btn-primary" href="/auth/login">Login</a>
+</div>
+{% else %}
+<div class="card">
+    <h3>Create Room</h3>
+    <form method="POST" action="/voice/rooms/create">
+        <div style="margin-bottom: 10px;">
+            <label for="name">Room Name</label>
+            <input id="name" name="name" type="text" required maxlength="80" placeholder="Family Planning">
+        </div>
+        <div style="margin-bottom: 14px;">
+            <label for="description">Description</label>
+            <input id="description" name="description" type="text" maxlength="200" placeholder="Optional description">
+        </div>
+        <button type="submit" class="btn-primary">Create Voice Room</button>
+    </form>
+</div>
+{% endif %}
+
+<div class="card">
+    <h3>Room Directory</h3>
+    {% if rooms and rooms|length > 0 %}
+    <div style="display:grid; gap: 10px;">
+        {% for room in rooms %}
+        <a class="btn-outline" href="/voice/rooms/{{ room.slug }}" style="justify-content: space-between;">
+            <span>
+                <strong>{{ room.name }}</strong>
+                {% if room.description %}
+                <span style="display:block; color:var(--text-muted); font-size:0.9rem;">{{ room.description }}</span>
+                {% endif %}
+            </span>
+            <span style="color:var(--text-muted); font-size:0.8rem;">/{{ room.slug }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No rooms yet. Create the first one.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3>Security Notes</h3>
+    <ul>
+        <li>Audio transport is encrypted by WebRTC DTLS-SRTP.</li>
+        <li>TURN relay defaults are preconfigured in the module config.</li>
+        <li>For production E2EE, add Insertable Streams on clients and rotate room keys.</li>
+    </ul>
+</div>
+{% endblock %}

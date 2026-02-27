@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2>Sync with {{ provider }} Calendar</h2>
+    <hr>
+    <p>To enable syncing with your {{ provider }} calendar, you will need to provide API credentials. This ensures your
+        data remains under your control without relying on a central HOMEPAGE gateway.</p>
+
+    <div class="instructions">
+        <h3>Setup Instructions:</h3>
+        <ol>
+            {% if provider == 'Google' %}
+            <li>Go to the <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a>.</li>
+            <li>Create a new project (e.g., "Family Homepage").</li>
+            <li>Enable the <strong>Google Calendar API</strong>.</li>
+            <li>Configure the <strong>OAuth consent screen</strong>.</li>
+            <li>Create <strong>OAuth 2.0 Client ID</strong> credentials for a "Web Application".</li>
+            <li>Add this Authorized Redirect URI: <br><code>{{ request.base_url }}calendar/sync/google/callback</code>
+            </li>
+            {% else %}
+            <li>Go to the <a href="https://portal.azure.com/" target="_blank">Azure Portal</a> (App Registrations).</li>
+            <li>Register a new application.</li>
+            <li>Under <strong>Authentication</strong>, add a Web platform.</li>
+            <li>Add this Redirect URI: <br><code>{{ request.base_url }}calendar/sync/outlook/callback</code></li>
+            <li>Under <strong>API Permissions</strong>, add <code>Calendars.ReadWrite</code> for Microsoft Graph.</li>
+            {% endif %}
+        </ol>
+
+        <p>After creating your credentials, add them to your <code>.env</code> file in the <code>V2</code> directory:
+        </p>
+
+        <pre><code>{% if provider == 'Google' %}GOOGLE_CLIENT_ID="your_client_id"
+GOOGLE_CLIENT_SECRET="your_client_secret"
+{% else %}MICROSOFT_CLIENT_ID="your_client_id"
+MICROSOFT_CLIENT_SECRET="your_client_secret"
+{% endif %}</code></pre>
+
+        <p>Once added, restart the server and the sync buttons will become active!</p>
+    </div>
+
+    <a href="/calendar" class="btn-outline">Back to Calendar</a>
+</div>
+
+<style>
+    .instructions {
+        margin: 25px 0;
+        background: var(--bg);
+        padding: 25px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+
+    .instructions h3 {
+        margin-top: 0;
+        color: var(--primary);
+    }
+
+    .instructions ol {
+        padding-left: 20px;
+    }
+
+    .instructions li {
+        margin-bottom: 12px;
+        line-height: 1.5;
+    }
+
+    code {
+        background: #e2e8f0;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+        color: #1e293b;
+        word-break: break-all;
+    }
+
+    pre {
+        background: #1e293b;
+        color: #f8fafc;
+        padding: 15px;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin: 15px 0;
+    }
+</style>
+{% endblock %}

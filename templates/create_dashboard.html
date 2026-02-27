@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="create-dash">
+    <div class="create-dash-header">
+        <h1>🌐 My Pages</h1>
+        <a href="/create/new" class="cd-new-btn">+ New Page</a>
+    </div>
+
+    {% if pages %}
+    <div class="cd-grid">
+        {% for p in pages %}
+        <div class="cd-card">
+            <div class="cd-card-title">
+                <span class="cd-title-text">{{ p.title }}</span>
+                <span class="cd-status {{ 'published' if p.is_published else 'draft' }}">
+                    {{ 'LIVE' if p.is_published else 'DRAFT' }}
+                </span>
+            </div>
+            <div class="cd-card-slug">/users/{{ user.username }}/created/{{ p.slug }}</div>
+            <div class="cd-card-meta">
+                Updated {{ p.updated_at.strftime('%b %d, %Y') if p.updated_at else 'just now' }}
+            </div>
+            <div class="cd-card-actions">
+                <a href="/create/edit/{{ p.id }}" class="cd-btn cd-btn-edit">Edit</a>
+                {% if p.is_published %}
+                <a href="/create/site/{{ user.username }}/{{ p.slug }}" class="cd-btn cd-btn-view" target="_blank">View</a>
+                {% endif %}
+                <form method="post" action="/create/delete/{{ p.id }}" style="display:inline"
+                      onsubmit="return confirm('Delete this page?')">
+                    <button type="submit" class="cd-btn cd-btn-del">Delete</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="cd-empty">
+        <p>You haven't created any pages yet.</p>
+        <p>Build your own website — just like GeoCities! 🚀</p>
+        <a href="/create/new" class="cd-new-btn">Create Your First Page</a>
+    </div>
+    {% endif %}
+
+    {% if pages %}
+    <div class="cd-footer">
+        <p>Your public pages are viewable at
+            <a href="/create/site/{{ user.username }}">/create/site/{{ user.username }}/</a>
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.create-dash{max-width:900px;margin:30px auto;padding:0 20px}
+.create-dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.create-dash-header h1{font-size:24px;margin:0}
+.cd-new-btn{display:inline-block;background:#4f46e5;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px}
+.cd-new-btn:hover{background:#4338ca}
+.cd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.cd-card{background:var(--card,#fff);border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px}
+.cd-card-title{display:flex;align-items:center;justify-content:space-between}
+.cd-title-text{font-weight:600;font-size:16px}
+.cd-status{font-size:10px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:20px}
+.cd-status.published{background:#dcfce7;color:#166534}
+.cd-status.draft{background:#fef3c7;color:#92400e}
+.cd-card-slug{font-family:monospace;font-size:12px;color:var(--text-muted,#64748b);word-break:break-all}
+.cd-card-meta{font-size:12px;color:var(--text-muted,#64748b)}
+.cd-card-actions{display:flex;gap:8px;margin-top:auto;padding-top:8px}
+.cd-btn{font-size:12px;padding:5px 12px;border-radius:6px;text-decoration:none;border:1px solid var(--border,#e2e8f0);cursor:pointer;font-family:inherit;background:transparent;color:var(--text,#1e293b)}
+.cd-btn:hover{background:#f1f5f9}
+.cd-btn-edit{background:#4f46e5;color:#fff;border-color:#4f46e5}
+.cd-btn-edit:hover{background:#4338ca}
+.cd-btn-view{background:#10b981;color:#fff;border-color:#10b981}
+.cd-btn-view:hover{background:#059669}
+.cd-btn-del{color:#ef4444;border-color:#ef4444}
+.cd-btn-del:hover{background:#fef2f2}
+.cd-empty{text-align:center;padding:60px 20px;background:var(--card,#fff);border-radius:12px;border:1px dashed var(--border,#e2e8f0)}
+.cd-empty p{color:var(--text-muted,#64748b);margin:6px 0}
+.cd-empty .cd-new-btn{margin-top:16px}
+.cd-footer{margin-top:24px;text-align:center;font-size:13px;color:var(--text-muted,#64748b)}
+.cd-footer a{color:#4f46e5}
+</style>
+{% endblock %}

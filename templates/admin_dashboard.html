@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>📊 Policy Enforcement Dashboard</h2>
+    <p>Overview of house rules and content moderation</p>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Stats Cards -->
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">Total Events</div>
+        </div>
+        <div class="stat-card blocked">
+            <div class="stat-value">{{ stats.blocked }}</div>
+            <div class="stat-label">Blocked (Forbidden)</div>
+        </div>
+        <div class="stat-card flagged">
+            <div class="stat-value">{{ stats.flagged }}</div>
+            <div class="stat-label">Flagged (Warning)</div>
+        </div>
+    </div>
+
+    <!-- Top Tags -->
+    <div class="card">
+        <h3>🔥 Most Matched Tags</h3>
+        <ul class="top-tags-list">
+            {% for tag, count in top_tags %}
+            <li>
+                <span class="tag-name">{{ tag }}</span>
+                <span class="tag-count">{{ count }} matches</span>
+            </li>
+            {% else %}
+            <li class="empty">No tags matched yet</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Recent Violations Table -->
+    <div class="card full-width">
+        <h3>🕒 Recent Policy Events</h3>
+        <table class="dashboard-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Type</th>
+                    <th>Matched Tag</th>
+                    <th>Preview</th>
+                    <th>Action</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for violation, username in recent_violations %}
+                <tr>
+                    <td><strong>{{ username }}</strong></td>
+                    <td>
+                        <span class="badge badge-{{ violation.violation_type }}">
+                            {{ violation.violation_type }}
+                        </span>
+                    </td>
+                    <td><code class="tag-match">{{ violation.matched_tag }}</code></td>
+                    <td><span class="content-preview">{{ violation.content_preview }}...</span></td>
+                    <td>
+                        <span class="action-status status-{{ violation.action_taken }}">
+                            {{ violation.action_taken }}
+                        </span>
+                    </td>
+                    <td>{{ violation.created_at.strftime('%m/%d %H:%M') }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty">No policy events recorded yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 20px;
+    }
+
+    .full-width {
+        grid-column: 1 / -1;
+    }
+
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        grid-column: 1 / -1;
+    }
+
+    .stat-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: var(--primary);
+        line-height: 1;
+        margin-bottom: 5px;
+    }
+
+    .stat-label {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .stat-card.blocked .stat-value {
+        color: #f44336;
+    }
+
+    .stat-card.flagged .stat-value {
+        color: #ff9800;
+    }
+
+    .top-tags-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .top-tags-list li {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .top-tags-list li:last-child {
+        border-bottom: none;
+    }
+
+    .tag-name {
+        font-weight: 700;
+        color: var(--text);
+        background: var(--bg);
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+
+    .tag-count {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .dashboard-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+
+    .dashboard-table th {
+        text-align: left;
+        padding: 12px;
+        border-bottom: 2px solid var(--border);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .dashboard-table td {
+        padding: 15px 12px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .tag-match {
+        background: var(--bg);
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: var(--primary);
+    }
+
+    .content-preview {
+        color: var(--text);
+        font-size: 0.9rem;
+        display: block;
+        max-width: 300px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .badge-forbidden {
+        background: #ffebee;
+        color: #c62828;
+    }
+
+    .badge-warning {
+        background: #fff3e0;
+        color: #e65100;
+    }
+
+    .action-status {
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .status-blocked {
+        color: #f44336;
+    }
+
+    .status-flagged {
+        color: #ff9800;
+    }
+
+    .empty {
+        text-align: center;
+        padding: 30px;
+        color: var(--text-muted);
+        font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}

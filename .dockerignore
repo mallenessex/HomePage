@@ -1,0 +1,18 @@
+.venv
+__pycache__
+*.pyc
+.git
+.env
+media/
+local.db
+data/
+.venv-client
+build/
+dist/
+external data/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+.idea/
+.vscode/

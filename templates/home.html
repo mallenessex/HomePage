@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section">
+    <h1>Welcome to {{ node_name }}</h1>
+    <p>Your private, family-safe corner of the internet.</p>
+    {% if not user %}
+    <div class="hero-actions">
+        <a href="/auth/register" class="btn-primary">Get Started</a>
+        <a href="/auth/login" class="btn-outline">Login</a>
+    </div>
+    <div style="margin-top: 16px;">
+        <button id="btnShowJoinRequest" class="btn-outline" style="font-size: 0.9rem;">Request to Join</button>
+    </div>
+
+    <!-- Join Request Form (hidden by default) -->
+    <div id="joinRequestForm" style="display:none; margin-top: 24px; max-width: 400px; text-align: left;">
+        <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px 28px; box-shadow: var(--shadow);">
+            <h3 style="margin-bottom: 4px; font-size: 1.1rem;">Request to Join {{ node_name }}</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 18px;">
+                Submit a request and an admin will review it. Once approved, you can log in with these credentials.
+            </p>
+            <div style="margin-bottom: 14px;">
+                <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:5px;">Username</label>
+                <input type="text" id="joinUsername" placeholder="Choose a username (min 3 chars)" autocomplete="off"
+                    style="width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.9rem; background:var(--bg); color:var(--text);">
+            </div>
+            <div style="margin-bottom: 14px;">
+                <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:5px;">Display Name <span style="color:var(--text-muted); font-weight:400;">(optional)</span></label>
+                <input type="text" id="joinDisplayName" placeholder="How you'd like to be known" autocomplete="off"
+                    style="width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.9rem; background:var(--bg); color:var(--text);">
+            </div>
+            <div style="margin-bottom: 14px;">
+                <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:5px;">Password</label>
+                <input type="password" id="joinPassword" placeholder="Min 6 characters" autocomplete="new-password"
+                    style="width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.9rem; background:var(--bg); color:var(--text);">
+            </div>
+            <div style="margin-bottom: 14px;">
+                <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:5px;">Confirm Password</label>
+                <input type="password" id="joinPasswordConfirm" placeholder="Re-enter password" autocomplete="new-password"
+                    style="width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.9rem; background:var(--bg); color:var(--text);">
+            </div>
+            <div id="joinStatus" style="display:none; padding:10px 14px; border-radius:var(--radius-sm); font-size:0.85rem; margin-bottom:12px;"></div>
+            <div style="display:flex; gap:10px;">
+                <button id="btnSubmitJoin" class="btn-primary" style="flex:1;">Submit Request</button>
+                <button id="btnCancelJoin" class="btn-outline" style="flex:0;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        const btnShow = document.getElementById('btnShowJoinRequest');
+        const form = document.getElementById('joinRequestForm');
+        const btnSubmit = document.getElementById('btnSubmitJoin');
+        const btnCancel = document.getElementById('btnCancelJoin');
+        const statusEl = document.getElementById('joinStatus');
+
+        btnShow.addEventListener('click', function() {
+            form.style.display = 'block';
+            btnShow.style.display = 'none';
+            document.getElementById('joinUsername').focus();
+        });
+
+        btnCancel.addEventListener('click', function() {
+            form.style.display = 'none';
+            btnShow.style.display = '';
+        });
+
+        function showStatus(msg, isError) {
+            statusEl.style.display = 'block';
+            statusEl.textContent = msg;
+            statusEl.style.background = isError ? '#fef2f2' : '#ecfdf5';
+            statusEl.style.color = isError ? '#991b1b' : '#065f46';
+            statusEl.style.border = isError ? '1px solid #fecaca' : '1px solid #a7f3d0';
+        }
+
+        btnSubmit.addEventListener('click', async function() {
+            const username = document.getElementById('joinUsername').value.trim();
+            const displayName = document.getElementById('joinDisplayName').value.trim();
+            const password = document.getElementById('joinPassword').value;
+            const passwordConfirm = document.getElementById('joinPasswordConfirm').value;
+
+            if (!username || username.length < 3) {
+                showStatus('Username must be at least 3 characters.', true);
+                return;
+            }
+            if (!password || password.length < 6) {
+                showStatus('Password must be at least 6 characters.', true);
+                return;
+            }
+            if (password !== passwordConfirm) {
+                showStatus('Passwords do not match.', true);
+                return;
+            }
+
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = 'Submitting…';
+            statusEl.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/request-join', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        username: username,
+                        display_name: displayName || null,
+                        password: password,
+                    }),
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showStatus(data.detail || 'Request submitted!', false);
+                    btnSubmit.style.display = 'none';
+                } else {
+                    showStatus(data.detail || 'Request failed.', true);
+                }
+            } catch (e) {
+                showStatus('Network error: ' + e.message, true);
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = 'Submit Request';
+            }
+        });
+    })();
+    </script>
+    {% endif %}
+</div>
+
+<div class="dashboard-grid">
+    {% for module in modules %}
+    {% set module_link = '' %}
+
+    {% if module.name == 'feed' %}
+    {% set module_link = '/feed' %}
+    {% elif module.name == 'discovery' %}
+    {% set module_link = '/community' %}
+    {% elif module.name == 'calendar' %}
+    {% set module_link = '/calendar' %}
+    {% elif module.name == 'games' %}
+    {% set module_link = '/games' %}
+    {% elif module.name == 'wikipedia' %}
+    {% set module_link = '/wikipedia' %}
+    {% elif module.name == 'voice' %}
+    {% set module_link = '/voice/' %}
+    {% elif module.name == 'mail' %}
+    {% set module_link = '/mail' %}
+    {% elif module.name == 'chat' %}
+    {% set module_link = '/chat' %}
+    {% endif %}
+
+    {% if module_link %}
+    <a href="{{ module_link }}" class="dash-card">
+        <div class="dash-icon" style="background: {{ module.color or 'var(--primary)' }};">{{ module.icon }}</div>
+        <div class="dash-info">
+            <h3>{{ module.display_name }}</h3>
+            <p>{{ module.description }}</p>
+        </div>
+        <div class="dash-badge">Active</div>
+    </a>
+    {% endif %}
+    {% endfor %}
+
+    <!-- Future: Photos -->
+    <div class="dash-card disabled">
+        <div class="dash-icon" style="background: #f59e0b;">📸</div>
+        <div class="dash-info">
+            <h3>Family Photos</h3>
+            <p>A private space for sharing and archiving memories.</p>
+        </div>
+        <div class="dash-badge locked">Coming Soon</div>
+    </div>
+</div>
+
+<style>
+    .hero-section {
+        text-align: center;
+        padding: 80px 40px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        margin-bottom: 40px;
+        border-radius: 32px;
+        box-shadow: var(--shadow);
+    }
+
+    .hero-section h1 {
+        font-size: 3.5rem;
+        font-weight: 900;
+        margin-bottom: 15px;
+        letter-spacing: -0.04em;
+        color: var(--text);
+    }
+
+    .hero-section p {
+        font-size: 1.3rem;
+        color: var(--text-muted);
+        max-width: 650px;
+        margin: 0 auto 40px;
+    }
+
+    .hero-actions {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+    }
+
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 24px;
+        margin-bottom: 60px;
+    }
+
+    .dash-card {
+        background: var(--card);
+        border: 2px solid var(--border);
+        border-radius: 24px;
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        text-decoration: none;
+        color: var(--text);
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 0 var(--border);
+    }
+
+    .dash-card:not(.disabled):hover {
+        transform: translateY(-4px);
+        border-color: var(--primary);
+        box-shadow: 0 8px 0 rgba(79, 70, 229, 0.1);
+    }
+
+    .dash-card.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        background: var(--bg);
+        border-style: dashed;
+        box-shadow: none;
+    }
+
+    .dash-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.2rem;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .dash-info h3 {
+        margin: 0 0 8px 0;
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .dash-info p {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .dash-badge {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: rgba(79, 70, 229, 0.1);
+        color: var(--primary);
+        text-transform: uppercase;
+    }
+
+    .dash-badge.locked {
+        background: #f1f5f9;
+        color: #94a3b8;
+    }
+
+    /* Retro Theme Specifics */
+    body.theme-retro .hero-section {
+        border: 2px solid #fff;
+        border-right-color: #808080;
+        border-bottom-color: #808080;
+        background: #c0c0c0;
+        box-shadow: none;
+    }
+
+    body.theme-retro .dash-card {
+        background: #c0c0c0;
+        border: 2px solid #fff;
+        border-right-color: #808080;
+        border-bottom-color: #808080;
+        box-shadow: none;
+    }
+
+    body.theme-retro .dash-card:hover {
+        transform: none;
+        background: #d0d0d0;
+    }
+
+    body.theme-retro .dash-icon {
+        border: 2px solid #808080;
+        border-right-color: #fff;
+        border-bottom-color: #fff;
+        box-shadow: none;
+    }
+
+    @media (max-width: 640px) {
+        .hero-section h1 {
+            font-size: 2.2rem;
+        }
+
+        .hero-section p {
+            font-size: 1.1rem;
+        }
+
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}

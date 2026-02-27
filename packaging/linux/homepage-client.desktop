@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=HOMEPAGE Client
+Comment=Contained client for HOMEPAGE private networks
+Exec=homepage-client
+Icon=homepage-client
+Categories=Network;
+Terminal=false
+StartupNotify=true

@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="wiki-container">
+    <!-- Wikipedia-style Sidebar / Header -->
+    <div class="wiki-header card">
+        <div class="wiki-branding">
+            <div class="wiki-logo">W</div>
+            <div>
+                <h1>Wikipedia</h1>
+                <p>The Free Encyclopedia (Offline Node)</p>
+            </div>
+        </div>
+
+        <div class="wiki-search-container">
+            <form action="/wikipedia" method="GET" class="wiki-search-form" onsubmit="handleSearchSubmit()">
+                <input type="text" name="q" placeholder="Search millions of articles..." value="{{ query or '' }}"
+                    required>
+                <button type="submit" class="btn-primary" id="searchBtn">Search</button>
+            </form>
+            <a href="/wikipedia/random" class="btn-outline random-btn">🎲 Random Article</a>
+        </div>
+    </div>
+
+    <!-- Indexing Status & Loading -->
+    <div id="loadingOverlay" class="card hidden"
+        style="text-align: center; border: 2px solid var(--primary); padding: 30px !important; background: var(--parchment) !important;">
+        <div class="loading-spinner"></div>
+        <h3 style="margin-top: 20px;">Scanning 26GB Database...</h3>
+        <p>This may take 30-60 seconds because your Wikipedia is not yet indexed.</p>
+    </div>
+
+    {% if not is_indexed %}
+    <div class="info-box card indexing-notice">
+        <div style="display: flex; gap: 20px; align-items: center;">
+            <div style="font-size: 2rem;">🚀</div>
+            <div>
+                <h4 style="margin:0 0 5px 0;">Speed up your searches!</h4>
+                <p style="margin:0; font-size: 0.9rem;">Your Wikipedia is running in <b>Slow Mode</b>. Create an index
+                    to get instant results, random articles, and full-text search.</p>
+            </div>
+            <div style="margin-left: auto;">
+                <code
+                    style="background: rgba(0,0,0,0.8); color: #0f0; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; border: 1px solid #333;">python V2/app/wikipedia_indexer.py</code>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="error-box card">
+        <h3 style="color: #991b1b;">🔍 No Match Found</h3>
+        <p>{{ error }}</p>
+    </div>
+    {% endif %}
+
+    {% if search_results %}
+    <!-- Search Results View -->
+    <div class="search-results-list">
+        <h3 style="margin-bottom: 20px; font-family: serif; color: var(--text-muted);">Results for "{{ query }}"</h3>
+        {% for result in search_results %}
+        <a href="/wikipedia/article/{{ result.title }}" class="result-item card">
+            <div class="result-header">
+                <span class="result-title">{{ result.title }}</span>
+                <span class="read-link">Read Full →</span>
+            </div>
+            <p class="result-snippet">{{ result.summary | safe }}</p>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if article %}
+    <!-- Article View -->
+    <div class="article-card card paper-aesthetic">
+        <div class="article-header">
+            <h2>{{ article.title }}</h2>
+            <div class="article-actions">
+                <span class="badge">Article</span>
+                <span class="badge">Offline</span>
+            </div>
+        </div>
+        <hr class="paper-hr">
+        <div class="article-content">
+            {{ article_html | default('', true) | safe }}
+            {% if article_is_truncated %}
+            <div class="read-more-fade">
+                <p>... Content truncated for performance. This is a raw preview of the Wikitext format.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% elif featured and not search_results %}
+    <!-- Home / Featured View -->
+    <div class="wiki-home">
+        <div class="featured-main card paper-aesthetic" style="border: 2px solid var(--border);">
+            <h3 style="font-family: serif; font-size: 2rem;">Welcome to Wikipedia</h3>
+            <p style="font-size: 1.1rem; color: var(--text-muted);">This is a private, offline version of the world's
+                encyclopedia. Knowledge at your fingertips, even without the web.</p>
+            {% if is_indexed %}
+            <p class="status-badge">⚡ High-Speed Index Active</p>
+            {% endif %}
+        </div>
+
+        <div class="featured-grid">
+            {% for item in featured %}
+            <a href="/wikipedia/article/{{ item.title }}" class="featured-card card paper-aesthetic"
+                onclick="handleLinkClick()">
+                <h4>{{ item.title }}</h4>
+                <p>{{ item.summary | truncate(150) }}</p>
+                <span class="read-link">Explore →</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+    :root {
+        --parchment: #fdfaf3;
+        --paper-border: #e8e2d4;
+        --wiki-text: #2c2925;
+    }
+
+    body.theme-midnight {
+        --parchment: #0a0c10;
+        /* Deep Obsidian Black */
+        --paper-border: #1e293b;
+        --wiki-text: #e2e8f0;
+        --accent-glow: rgba(99, 102, 241, 0.2);
+    }
+
+    /* Midnight Card Enhancements */
+    body.theme-midnight .paper-aesthetic {
+        border: 1px solid #1e293b !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    body.theme-midnight .wiki-header {
+        background: #0f172a !important;
+        border-bottom: 4px solid var(--primary) !important;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    /* Vibrant Midnight Buttons (Replacing the Grey) */
+    body.theme-midnight .random-btn {
+        border: 2px solid var(--primary) !important;
+        color: #818cf8 !important;
+        background: rgba(99, 102, 241, 0.08) !important;
+        box-shadow: 0 0 15px var(--accent-glow);
+        font-weight: 700 !important;
+    }
+
+    body.theme-midnight .random-btn:hover {
+        background: var(--primary) !important;
+        color: #fff !important;
+        box-shadow: 0 0 25px rgba(99, 102, 241, 0.5);
+        transform: translateY(-2px);
+    }
+
+    body.theme-midnight #searchBtn {
+        background: linear-gradient(135deg, #6366f1, #4338ca) !important;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        border: none !important;
+    }
+
+    .wiki-container {
+        max-width: 1050px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .wiki-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 30px;
+        padding: 25px 35px !important;
+        margin-bottom: 35px;
+        background: var(--parchment) !important;
+        border: 1px solid var(--paper-border) !important;
+        border-bottom: 4px solid var(--primary) !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02) !important;
+    }
+
+    .wiki-branding {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .wiki-logo {
+        width: 54px;
+        height: 54px;
+        background: #1a1a1a;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.2rem;
+        font-family: serif;
+        font-weight: bold;
+        border-radius: 12px;
+        box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    .wiki-branding h1 {
+        margin: 0;
+        font-size: 1.8rem;
+        font-family: serif;
+        color: var(--text);
+    }
+
+    .wiki-branding p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .wiki-search-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+        max-width: 600px;
+    }
+
+    .wiki-search-form {
+        display: flex;
+        gap: 10px;
+        flex: 1;
+    }
+
+    .wiki-search-form input {
+        flex: 1;
+        padding: 12px 18px;
+        border: 1px solid var(--paper-border);
+        border-radius: 12px;
+        background: #fff;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+
+    .wiki-search-form input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        outline: none;
+    }
+
+    .random-btn {
+        white-space: nowrap;
+        padding: 11px 18px !important;
+        border-radius: 12px !important;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .paper-aesthetic {
+        background: var(--parchment) !important;
+        border: 1px solid var(--paper-border) !important;
+        color: var(--wiki-text) !important;
+        position: relative;
+    }
+
+    .paper-aesthetic::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('https://www.transparenttextures.com/patterns/paper-fibers.png');
+        pointer-events: none;
+        opacity: 0.2;
+        border-radius: inherit;
+    }
+
+    .indexing-notice {
+        background: rgba(79, 70, 229, 0.03) !important;
+        border: 1px dashed var(--primary) !important;
+        box-shadow: none !important;
+    }
+
+    .article-card {
+        padding: 50px 60px !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05) !important;
+        border-radius: 16px !important;
+    }
+
+    .article-header h2 {
+        font-family: serif;
+        font-size: 2.8rem;
+        margin: 0;
+        color: var(--wiki-text);
+        letter-spacing: -0.02em;
+    }
+
+    .paper-hr {
+        border: none;
+        height: 1px;
+        background: linear-gradient(to right, transparent, var(--paper-border), transparent);
+        margin: 30px 0;
+    }
+
+    .article-content {
+        font-family: 'Georgia', 'Times New Roman', serif;
+        line-height: 2;
+        font-size: 1.15rem;
+        color: var(--wiki-text);
+        white-space: pre-wrap;
+        opacity: 0.9;
+    }
+
+    .search-results-list {
+        margin-bottom: 40px;
+    }
+
+    .result-item {
+        text-decoration: none;
+        color: inherit;
+        margin-bottom: 15px;
+        display: block;
+        padding: 25px !important;
+        border-radius: 16px !important;
+        transition: transform 0.2s, border-color 0.2s !important;
+    }
+
+    .result-item:hover {
+        transform: translateX(5px);
+        border-color: var(--primary) !important;
+    }
+
+    .result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .result-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--primary);
+        font-family: serif;
+    }
+
+    .result-snippet {
+        font-size: 1rem;
+        color: var(--text-muted);
+        line-height: 1.6;
+        margin: 0;
+    }
+
+    .featured-main {
+        text-align: center;
+        padding: 50px !important;
+        border-radius: 20px !important;
+        margin-bottom: 40px;
+    }
+
+    .status-badge {
+        background: #ecfdf5;
+        color: #065f46;
+        padding: 6px 16px;
+        border-radius: 100px;
+        display: inline-block;
+        font-size: 0.85rem;
+        font-weight: bold;
+        margin-top: 20px;
+        border: 1px solid #d1fae5;
+    }
+
+    .featured-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 25px;
+    }
+
+    .featured-card {
+        padding: 30px !important;
+        border-radius: 16px !important;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s !important;
+    }
+
+    .featured-card:hover {
+        transform: translateY(-6px);
+        border-color: var(--primary) !important;
+        box-shadow: 0 12px 20px rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .featured-card h4 {
+        margin: 0 0 12px 0;
+        font-family: serif;
+        font-size: 1.3rem;
+        color: var(--primary);
+    }
+
+    .featured-card p {
+        font-size: 0.95rem;
+        color: var(--text-muted);
+        line-height: 1.6;
+    }
+
+    .read-link {
+        font-size: 0.9rem;
+        font-weight: bold;
+        color: var(--primary);
+        margin-top: 15px;
+        display: inline-block;
+    }
+
+    .loading-spinner {
+        border: 4px solid rgba(0, 0, 0, 0.05);
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border-left-color: var(--primary);
+        animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        margin: 0 auto;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    @media (max-width: 850px) {
+        .wiki-header {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 25px !important;
+        }
+
+        .wiki-search-container {
+            flex-direction: column;
+        }
+
+        .wiki-search-form {
+            width: 100%;
+        }
+
+        .random-btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .article-card {
+            padding: 30px !important;
+        }
+    }
+</style>
+
+<script>
+    var isIndexed = "{{ 'true' if is_indexed else 'false' }}" === "true";
+
+    function handleSearchSubmit() {
+        if (!isIndexed) {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            var btn = document.getElementById('searchBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = 'Scanning...';
+            }
+        }
+    }
+
+    function handleLinkClick() {
+        if (!isIndexed) {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+    }
+</script>
+{% endblock %}

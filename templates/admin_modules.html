@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-text">
+        <h2>🧩 Platform Modules</h2>
+        <p>Enable or disable major features of {{ platform_name }}</p>
+    </div>
+    <a href="/admin/settings" class="btn-outline">Back to Settings</a>
+</div>
+
+<!-- ── Router Loading Config ──────────────────────────── -->
+<div class="card" style="margin-bottom: 32px; padding: 24px 28px;">
+    <h3 style="margin: 0 0 6px;">⚡ Module Router Loading</h3>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">
+        Control which module routers are loaded at server startup. Unloaded modules won't consume memory or startup time.
+        <strong>Changes require a server restart to take effect.</strong>
+    </p>
+    <form action="/admin/modules/save-loaded" method="POST">
+        <div style="display: flex; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 16px;">
+            {% set optional_modules = ['calendar', 'games', 'wikipedia', 'discussions', 'voice', 'mail', 'chat'] %}
+            {% set optional_labels = {'calendar': '📅 Calendar', 'games': '🎮 Games', 'wikipedia': '📚 Wikipedia', 'discussions': '💬 Discussions', 'voice': '🔊 Voice', 'mail': '✉️ Mail', 'chat': '💭 Chat'} %}
+            {% for mod in optional_modules %}
+            <label style="display:flex; align-items:center; gap:6px; font-size:0.9rem; cursor:pointer;">
+                <input type="checkbox" name="load_{{ mod }}" value="1"
+                    {% if mod in loaded_modules %}checked{% endif %}
+                    style="width:16px; height:16px; accent-color: var(--primary);">
+                {{ optional_labels[mod] }}
+                {% if mod in loaded_modules %}
+                <span style="font-size:0.7rem; color:#16a34a; font-weight:600;">LOADED</span>
+                {% else %}
+                <span style="font-size:0.7rem; color:var(--text-muted);">NOT LOADED</span>
+                {% endif %}
+            </label>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn-primary" style="font-size:0.85rem; padding:8px 20px;">
+            Save &amp; Apply on Next Restart
+        </button>
+    </form>
+</div>
+
+<!-- ── Per-Module Cards ───────────────────────────────── -->
+<div class="modules-grid">
+    {% for module in modules %}
+    <div class="module-card card {{ 'enabled' if module.is_enabled else 'disabled' }}">
+        <div class="module-header">
+            <div class="module-icon">{{ module.icon }}</div>
+            <div class="module-title">
+                <h3>{{ module.display_name }}</h3>
+                <span class="module-id">ID: {{ module.name }}</span>
+            </div>
+            <form action="/admin/modules/{{ module.id }}/toggle" method="POST">
+                <button type="submit" class="toggle-btn {{ 'active' if module.is_enabled else '' }}">
+                    <div class="toggle-nob"></div>
+                </button>
+            </form>
+        </div>
+        <p class="module-desc">{{ module.description }}</p>
+        <div class="module-footer">
+            <span class="status-label">{{ 'Active' if module.is_enabled else 'Disabled' }}</span>
+            <button class="btn-outline-mini">Configure</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 40px;
+    }
+
+    .modules-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 30px;
+        margin-bottom: 60px;
+    }
+
+    .module-card {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 30px !important;
+        transition: all 0.3s;
+        border: 2px solid var(--border);
+    }
+
+    .module-card.enabled {
+        border-color: var(--primary);
+        background: rgba(79, 70, 229, 0.02);
+    }
+
+    .module-card.disabled {
+        opacity: 0.7;
+        filter: grayscale(0.5);
+    }
+
+    .module-header {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .module-icon {
+        font-size: 2.5rem;
+        width: 60px;
+        height: 60px;
+        background: var(--bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+    }
+
+    .module-title {
+        flex: 1;
+    }
+
+    .module-title h3 {
+        margin: 0;
+        font-size: 1.25rem;
+    }
+
+    .module-id {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .module-desc {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.5;
+        min-height: 4.5em;
+    }
+
+    .module-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+    }
+
+    .status-label {
+        font-weight: 800;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    .module-card.enabled .status-label {
+        color: var(--primary);
+    }
+
+    /* Toggle Button */
+    .toggle-btn {
+        width: 50px;
+        height: 26px;
+        background: #cbd5e1;
+        border-radius: 13px;
+        border: none;
+        position: relative;
+        cursor: pointer;
+        transition: all 0.3s;
+        padding: 0;
+    }
+
+    .toggle-btn.active {
+        background: var(--primary);
+    }
+
+    .toggle-nob {
+        width: 20px;
+        height: 20px;
+        background: white;
+        border-radius: 50%;
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        transition: all 0.3s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .toggle-btn.active .toggle-nob {
+        left: 27px;
+    }
+
+    .btn-outline-mini {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}

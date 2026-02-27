@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ message.subject }}</h2>
+    <p>
+        {% if is_sender %}
+        To {{ message.recipient_address }}
+        {% else %}
+        From {{ message.sender.username if message.sender else 'Unknown' }}
+        {% endif %}
+    </p>
+</div>
+
+<div class="card">
+    <p style="white-space:pre-wrap;">{{ message.body }}</p>
+    <hr>
+    <p class="text-muted">Delivery: {{ message.delivery_status }}</p>
+    <p class="text-muted">Date: {{ message.created_at.strftime('%Y-%m-%d %H:%M') if message.created_at else '—' }}</p>
+    <div style="display:flex; gap:10px; margin-top: 12px;">
+        <a href="/mail" class="btn-outline">Back</a>
+        <form method="POST" action="/mail/message/{{ message.id }}/delete"
+            onsubmit="return confirm('Delete this message from your mailbox view?');">
+            <button class="btn-danger-mini" type="submit">Delete</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

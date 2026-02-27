@@ -1,0 +1,5 @@
+#!/bin/bash
+# AppRun — entry point for the HOMEPAGE Client AppImage.
+# PyInstaller's onedir output lives under $APPDIR/usr/bin/
+HERE="$(dirname "$(readlink -f "$0")")"
+exec "$HERE/usr/bin/HOMEPAGEClient-linux" "$@"

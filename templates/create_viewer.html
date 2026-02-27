@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page.title }} — {{ profile_user.display_name or profile_user.username }}'s Page</title>
+    <style>
+        /* Reset */
+        *, *::before, *::after { box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; }
+
+        /* User's custom CSS */
+        {{ page.css_content | safe }}
+    </style>
+</head>
+<body>
+    <!-- Top attribution bar (minimal, stays out of the way) -->
+    <div style="background:#222;color:#aaa;font-size:12px;padding:4px 12px;display:flex;align-items:center;justify-content:space-between;font-family:system-ui,sans-serif">
+        <span>
+            Page by <a href="/users/{{ profile_user.username }}" style="color:#818cf8;text-decoration:none">{{ profile_user.display_name or profile_user.username }}</a>
+            on {{ node_name }}
+        </span>
+        <span>
+            <a href="/create/site/{{ profile_user.username }}" style="color:#888;text-decoration:none;margin-right:10px">All Pages</a>
+            {% if user and (user.id == profile_user.id or user.is_admin) %}
+            <a href="/create/edit/{{ page.id }}" style="color:#818cf8;text-decoration:none">Edit</a>
+            {% endif %}
+        </span>
+    </div>
+
+    <!-- User's page content -->
+    <div class="page-content">
+        {{ page.html_content | safe }}
+    </div>
+</body>
+</html>

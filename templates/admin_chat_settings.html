@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>⌨️ Chat Settings</h2>
+    <p>Manage chat servers, channel groups, channels, and group-level inherited permissions.</p>
+</div>
+{% if chat_error == 'group_required' %}
+<div class="card" style="margin-bottom: 16px; border:1px solid #dc2626; color:#b91c1c;">
+    A channel group is required. Create/select a group before adding a channel.
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center;">
+    <div>
+        <h3 style="margin:0;">Admin Settings</h3>
+        <p class="help-text" style="margin:4px 0 0 0;">Return to general server, users, and federation controls.</p>
+    </div>
+    <a href="/admin/settings" class="btn-outline">Back to Admin Settings</a>
+</div>
+
+<form action="/admin/chat/servers/create" method="POST" class="card" style="margin-bottom: 24px;">
+    <h3>Create Chat Server</h3>
+    <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:10px;">
+        <input type="text" name="chat_server_name" placeholder="Server name" required>
+        <input type="text" name="chat_server_description" placeholder="Description (optional)">
+        <button type="submit" class="btn-primary">Create Server</button>
+    </div>
+</form>
+
+{% if chat_servers and chat_servers|length > 0 %}
+{% for s in chat_servers %}
+<div class="card" style="margin-bottom: 24px;">
+    <h3>{{ s.name }}</h3>
+    {% if s.description %}
+    <p class="help-text">{{ s.description }}</p>
+    {% endif %}
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top: 10px;">
+        <form action="/admin/chat/servers/{{ s.id }}/groups/create" method="POST">
+            <label>New Channel Group</label>
+            <div style="display:grid; grid-template-columns: 1fr auto; gap:8px;">
+                <input type="text" name="chat_group_name_{{ s.id }}" placeholder="Group name (e.g., Family, School)" required>
+                <button type="submit" class="btn-outline">Create Group</button>
+            </div>
+        </form>
+        <form action="/admin/chat/servers/{{ s.id }}/channels/create" method="POST">
+            <label>New Channel</label>
+            {% set groups = chat_groups_by_server.get(s.id, []) %}
+            <div style="display:grid; grid-template-columns: 1fr 120px 180px 1fr auto; gap:8px;">
+                <input type="text" name="chat_channel_name_{{ s.id }}" placeholder="Channel name" required>
+                <select name="chat_channel_type_{{ s.id }}" class="role-select">
+                    <option value="text">Text</option>
+                    <option value="voice">Voice</option>
+                </select>
+                <select name="chat_group_id_{{ s.id }}" class="role-select" {% if not groups %}disabled{% endif %} required>
+                    <option value="">Select Group</option>
+                    {% for grp in groups %}
+                    <option value="{{ grp.id }}">{{ grp.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="chat_topic_{{ s.id }}" placeholder="Topic (optional)">
+                <button type="submit" class="btn-primary" {% if not groups %}disabled{% endif %}>Add</button>
+            </div>
+            {% if not groups %}
+            <p class="help-text" style="margin-top:8px;">Create a channel group first. New channels must belong to a group.</p>
+            {% endif %}
+        </form>
+    </div>
+
+    <div style="margin-top:14px;">
+        <h4 style="margin:0 0 8px 0;">Channels</h4>
+        {% set channel_list = chat_channels_by_server.get(s.id, []) %}
+        {% if channel_list and channel_list|length > 0 %}
+        {% for ch in channel_list %}
+        <span class="badge">{{ '#' if ch.channel_type == 'text' else '🔊' }} {{ ch.name }}</span>
+        {% endfor %}
+        {% else %}
+        <span class="text-muted">No channels yet.</span>
+        {% endif %}
+    </div>
+
+    <div style="margin-top: 16px;">
+        <h4 style="margin:0 0 8px 0;">Ungrouped Channels</h4>
+        {% set ungrouped = channel_list | selectattr('category_id', 'equalto', none) | list %}
+        {% if ungrouped and ungrouped|length > 0 %}
+        <div style="display:grid; gap:8px; margin-bottom:12px;">
+            {% for ch in ungrouped %}
+            <form action="/admin/chat/channels/{{ ch.id }}/assign-group" method="POST"
+                style="display:grid; grid-template-columns: 1fr 220px auto; gap:8px; align-items:center;">
+                <span class="badge">{{ '#' if ch.channel_type == 'text' else '🔊' }} {{ ch.name }}</span>
+                <select name="group_id" class="role-select" required>
+                    <option value="">Assign to group</option>
+                    {% for grp in chat_groups_by_server.get(s.id, []) %}
+                    <option value="{{ grp.id }}">{{ grp.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn-outline">Assign</button>
+            </form>
+            {% endfor %}
+        </div>
+        {% else %}
+        <span class="text-muted">No ungrouped channels.</span>
+        {% endif %}
+    </div>
+
+    <div style="margin-top: 16px;">
+        <h4 style="margin:0 0 8px 0;">Roles</h4>
+        <p class="help-text">Create roles here, then use them in channel group permissions below.</p>
+        <form action="/admin/chat/servers/{{ s.id }}/roles/create" method="POST" style="margin-bottom:10px;">
+            <div style="display:grid; grid-template-columns: 1fr 140px auto; gap:8px;">
+                <input type="text" name="chat_role_name_{{ s.id }}" placeholder="Role name (e.g., moderator)" required>
+                <input type="color" name="chat_role_color_{{ s.id }}" value="#64748b">
+                <button type="submit" class="btn-outline">Create Role</button>
+            </div>
+        </form>
+        {% set role_list = chat_roles_by_server.get(s.id, []) %}
+        {% if role_list and role_list|length > 0 %}
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            {% for role in role_list %}
+            <span class="badge" style="border-left:4px solid {{ role.color or '#64748b' }};">
+                {{ role.name }}
+            </span>
+            {% endfor %}
+        </div>
+        {% else %}
+        <span class="text-muted">No roles yet.</span>
+        {% endif %}
+    </div>
+
+    <div style="margin-top: 16px;">
+        <h4 style="margin:0 0 8px 0;">Channel Group Permissions</h4>
+        <p class="help-text">Permissions set here are inherited by every channel in that group.</p>
+        {% set groups = chat_groups_by_server.get(s.id, []) %}
+        {% if groups and groups|length > 0 %}
+        {% for grp in groups %}
+        <div style="border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:10px;">
+            <strong>{{ grp.name }}</strong>
+
+            {% set existing = group_overwrites_by_group.get(grp.id, []) %}
+            {% if existing and existing|length > 0 %}
+            <div style="margin-top:8px; display:grid; gap:6px;">
+                {% for ow in existing %}
+                <div style="font-size:0.9rem;">
+                    <span class="badge">Role #{{ ow.role_id }}</span>
+                    {% set labels = overwrite_labels.get(ow.id, {'allow': [], 'deny': []}) %}
+                    <span class="text-muted">Allow: {{ labels.allow|join(', ') if labels.allow else 'none' }}</span>
+                    <span class="text-muted" style="margin-left:10px;">Deny: {{ labels.deny|join(', ') if labels.deny else 'none' }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form action="/admin/chat/groups/{{ grp.id }}/permissions/upsert" method="POST" style="margin-top:10px;">
+                <div style="display:grid; grid-template-columns: 200px 1fr 1fr auto; gap:8px; align-items:start;">
+                    <select name="role_id" class="role-select" required>
+                        <option value="">Select role</option>
+                        {% for role in chat_roles_by_server.get(s.id, []) %}
+                        <option value="{{ role.id }}">{{ role.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div>
+                        <div class="help-text" style="margin:0 0 4px 0;">Allow</div>
+                        {% for perm_name, perm_bit in chat_permission_bits.items() %}
+                        <label style="display:block;">
+                            <input type="checkbox" name="allow_{{ perm_name }}" value="1"> {{ perm_name }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <div>
+                        <div class="help-text" style="margin:0 0 4px 0;">Deny</div>
+                        {% for perm_name, perm_bit in chat_permission_bits.items() %}
+                        <label style="display:block;">
+                            <input type="checkbox" name="deny_{{ perm_name }}" value="1"> {{ perm_name }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <button type="submit" class="btn-outline">Save</button>
+                </div>
+            </form>
+        </div>
+        {% endfor %}
+        {% else %}
+        <span class="text-muted">Create at least one channel group to configure inherited permissions.</span>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card">
+    <p class="text-muted">No chat servers yet.</p>
+</div>
+{% endif %}
+{% endblock %}

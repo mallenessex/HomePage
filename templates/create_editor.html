@@ -1,0 +1,689 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="create-editor-wrap">
+    <!-- Top bar -->
+    <div class="ce-topbar">
+        <a href="/create" class="ce-back">&larr; My Pages</a>
+        <input type="text" id="pageTitle" class="ce-title-input" placeholder="Page Title"
+               value="{{ page.title if page else '' }}">
+        <input type="text" id="pageSlug" class="ce-slug-input" placeholder="url-slug"
+               value="{{ page.slug if page else '' }}">
+        <label class="ce-publish-label">
+            <input type="checkbox" id="publishCheck" {% if page and page.is_published %}checked{% endif %}>
+            Published
+        </label>
+        <div class="ce-topbar-actions">
+            <button id="btnCodeView" class="ce-btn ce-btn-ghost">Code View</button>
+            <button id="btnPreview" class="ce-btn ce-btn-ghost">Preview</button>
+            <button id="btnSave" class="ce-btn ce-btn-primary">Save</button>
+        </div>
+    </div>
+
+    <div class="ce-body">
+        <!-- Element toolbar (left) -->
+        <div class="ce-toolbar">
+            <div class="ce-tool-title">Elements</div>
+            <button class="ce-tool" data-tag="h1" title="Heading 1">H1</button>
+            <button class="ce-tool" data-tag="h2" title="Heading 2">H2</button>
+            <button class="ce-tool" data-tag="h3" title="Heading 3">H3</button>
+            <button class="ce-tool" data-tag="p" title="Paragraph">P</button>
+            <button class="ce-tool" data-tag="img" title="Image">IMG</button>
+            <button class="ce-tool" data-tag="a" title="Link">LINK</button>
+            <button class="ce-tool" data-tag="div" title="Container">DIV</button>
+            <button class="ce-tool" data-tag="hr" title="Divider">HR</button>
+            <button class="ce-tool" data-tag="ul" title="Bullet List">UL</button>
+            <button class="ce-tool" data-tag="ol" title="Numbered List">OL</button>
+            <button class="ce-tool" data-tag="blockquote" title="Quote">QUOTE</button>
+            <button class="ce-tool" data-tag="spacer" title="Spacer">⬜</button>
+            <div class="ce-tool-title" style="margin-top:12px">Page</div>
+            <button class="ce-tool" id="btnBgColor" title="Background Color">BG</button>
+            <button class="ce-tool" id="btnBgImage" title="Background Image">BG-IMG</button>
+        </div>
+
+        <!-- Canvas (center) -->
+        <div class="ce-canvas-wrap">
+            <div id="ceCanvas" class="ce-canvas"></div>
+            <!-- Code view (toggled) -->
+            <div id="codeViewPanel" class="ce-code-panel hidden">
+                <div class="ce-code-section">
+                    <label>HTML</label>
+                    <textarea id="codeHTML" class="ce-code-area" spellcheck="false"></textarea>
+                </div>
+                <div class="ce-code-section">
+                    <label>CSS</label>
+                    <textarea id="codeCSS" class="ce-code-area" spellcheck="false"></textarea>
+                </div>
+            </div>
+            <!-- Preview iframe (toggled) -->
+            <iframe id="previewFrame" class="ce-preview-frame hidden"></iframe>
+        </div>
+
+        <!-- Properties panel (right) -->
+        <div id="propsPanel" class="ce-props">
+            <div class="ce-props-title">Properties</div>
+            <div id="propsContent" class="ce-props-body">
+                <p class="ce-props-hint">Select an element on the canvas.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ── Editor layout ─────────────────────────────── */
+.create-editor-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);background:#1a1a2e;color:#e0e0e0;font-family:'Inter',system-ui,sans-serif}
+.ce-topbar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#12122a;border-bottom:1px solid #333;flex-wrap:wrap}
+.ce-back{color:#818cf8;text-decoration:none;font-size:13px;white-space:nowrap}
+.ce-back:hover{text-decoration:underline}
+.ce-title-input{background:#222244;border:1px solid #444;color:#fff;font-size:14px;padding:5px 10px;border-radius:4px;width:200px}
+.ce-slug-input{background:#222244;border:1px solid #444;color:#aaa;font-size:12px;padding:5px 10px;border-radius:4px;width:140px;font-family:monospace}
+.ce-publish-label{font-size:12px;color:#aaa;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.ce-topbar-actions{margin-left:auto;display:flex;gap:6px}
+.ce-btn{font-family:inherit;font-size:12px;padding:6px 14px;border-radius:4px;cursor:pointer;border:none}
+.ce-btn-ghost{background:#2a2a4a;color:#ccc;border:1px solid #444}
+.ce-btn-ghost:hover{background:#3a3a5a}
+.ce-btn-ghost.active{background:#4f46e5;color:#fff;border-color:#4f46e5}
+.ce-btn-primary{background:#4f46e5;color:#fff}
+.ce-btn-primary:hover{background:#4338ca}
+
+.ce-body{display:flex;flex:1;overflow:hidden}
+
+/* Toolbar (left) */
+.ce-toolbar{width:70px;background:#12122a;border-right:1px solid #333;padding:8px 6px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.ce-tool-title{font-size:9px;text-transform:uppercase;color:#666;text-align:center;padding:4px 0 2px;letter-spacing:1px}
+.ce-tool{background:#2a2a4a;border:1px solid #444;color:#ccc;font-family:monospace;font-size:11px;padding:6px 2px;border-radius:4px;cursor:pointer;text-align:center}
+.ce-tool:hover{background:#3a3a5a;border-color:#818cf8}
+
+/* Canvas (center) */
+.ce-canvas-wrap{flex:1;overflow:auto;position:relative;background:#111}
+.ce-canvas{min-height:100%;padding:30px;background:#fff;color:#000;margin:0 auto;max-width:960px;position:relative}
+.ce-canvas:empty::after{content:'Click an element on the left toolbar, or drag elements to reorder.';color:#999;font-size:14px;text-align:center;display:block;padding:80px 20px}
+
+/* Canvas elements */
+.ce-canvas [data-ce]{position:relative;outline:2px dashed transparent;min-height:20px;cursor:move;transition:outline-color .15s}
+.ce-canvas [data-ce]:hover{outline-color:#818cf8}
+.ce-canvas [data-ce].ce-selected{outline-color:#4f46e5;outline-style:solid}
+.ce-canvas [data-ce] .ce-drag-handle{position:absolute;left:-22px;top:50%;transform:translateY(-50%);width:16px;height:22px;background:#4f46e5;color:#fff;font-size:10px;text-align:center;line-height:22px;border-radius:3px;cursor:grab;opacity:0;transition:opacity .15s;user-select:none;z-index:5}
+.ce-canvas [data-ce]:hover .ce-drag-handle,.ce-canvas [data-ce].ce-selected .ce-drag-handle{opacity:1}
+.ce-canvas [data-ce] .ce-del-handle{position:absolute;right:-22px;top:50%;transform:translateY(-50%);width:16px;height:22px;background:#ef4444;color:#fff;font-size:12px;text-align:center;line-height:22px;border-radius:3px;cursor:pointer;opacity:0;transition:opacity .15s;user-select:none;z-index:5}
+.ce-canvas [data-ce]:hover .ce-del-handle{opacity:.6}
+.ce-canvas [data-ce] .ce-del-handle:hover{opacity:1}
+.ce-spacer-el{height:40px;background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(0,0,0,.04) 8px,rgba(0,0,0,.04) 16px)}
+.ce-drop-indicator{height:3px;background:#4f46e5;border-radius:2px;margin:2px 0;pointer-events:none;transition:opacity .15s}
+
+/* Props (right) */
+.ce-props{width:240px;background:#12122a;border-left:1px solid #333;padding:10px;overflow-y:auto}
+.ce-props-title{font-size:11px;text-transform:uppercase;color:#666;letter-spacing:1px;margin-bottom:8px}
+.ce-props-hint{font-size:12px;color:#555}
+.ce-props-body label{font-size:11px;color:#888;display:block;margin:8px 0 3px}
+.ce-props-body input,.ce-props-body select,.ce-props-body textarea{width:100%;background:#222244;border:1px solid #444;color:#ddd;font-size:12px;padding:5px 8px;border-radius:3px;font-family:inherit;box-sizing:border-box}
+.ce-props-body textarea{min-height:60px;font-family:monospace;font-size:11px;resize:vertical}
+
+/* Code editors */
+.ce-code-panel{display:flex;gap:8px;position:absolute;top:0;left:0;right:0;bottom:0;background:#1a1a2e;padding:10px;z-index:10}
+.ce-code-section{flex:1;display:flex;flex-direction:column}
+.ce-code-section label{font-size:11px;color:#888;margin-bottom:4px}
+.ce-code-area{flex:1;background:#0d0d1a;border:1px solid #333;color:#0f0;font-family:monospace;font-size:13px;padding:10px;border-radius:4px;resize:none;tab-size:2}
+
+/* Preview */
+.ce-preview-frame{position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#fff;z-index:10}
+
+.hidden{display:none!important}
+@media(max-width:800px){.ce-toolbar{width:50px}.ce-props{width:180px}.ce-tool{font-size:10px;padding:5px 1px}}
+</style>
+
+<script>
+(function(){
+"use strict";
+
+// ── State ──
+var pageId = {{ page.id|tojson if page else 'null' }};
+var canvasEl = document.getElementById("ceCanvas");
+var selectedEl = null;
+var dragSrcEl = null;
+var ceIdCounter = 0;
+
+// ── Load existing page JSON into canvas ──
+{% if page and page.page_json %}
+try {
+    var savedTree = JSON.parse({{ page.page_json|tojson }});
+    if (savedTree && savedTree.elements) {
+        savedTree.elements.forEach(function(el){ addElementFromData(el); });
+    }
+    if (savedTree.bgColor) canvasEl.style.backgroundColor = savedTree.bgColor;
+    if (savedTree.bgImage) canvasEl.style.backgroundImage = savedTree.bgImage;
+    if (savedTree.bgSize) canvasEl.style.backgroundSize = savedTree.bgSize;
+} catch(e) { console.warn("Could not load page_json:", e); }
+{% endif %}
+
+// ── Element creation ──
+function createCeId() { return "ce-" + (++ceIdCounter); }
+
+function addElement(tag) {
+    var wrapper, inner;
+    var id = createCeId();
+
+    if (tag === "spacer") {
+        wrapper = document.createElement("div");
+        wrapper.className = "ce-spacer-el";
+        wrapper.setAttribute("data-ce", id);
+        wrapper.setAttribute("data-tag", "spacer");
+    } else if (tag === "img") {
+        wrapper = document.createElement("div");
+        wrapper.setAttribute("data-ce", id);
+        wrapper.setAttribute("data-tag", "img");
+        var img = document.createElement("img");
+        img.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23ddd' width='300' height='200'/><text x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='14'>Click to set image URL</text></svg>";
+        img.style.maxWidth = "100%";
+        img.style.display = "block";
+        wrapper.appendChild(img);
+    } else if (tag === "hr") {
+        wrapper = document.createElement("hr");
+        wrapper.setAttribute("data-ce", id);
+        wrapper.setAttribute("data-tag", "hr");
+    } else if (tag === "a") {
+        wrapper = document.createElement("div");
+        wrapper.setAttribute("data-ce", id);
+        wrapper.setAttribute("data-tag", "a");
+        var link = document.createElement("a");
+        link.href = "#";
+        link.textContent = "Link text";
+        link.contentEditable = "true";
+        link.style.color = "#4f46e5";
+        link.addEventListener("click", function(e){ e.preventDefault(); });
+        wrapper.appendChild(link);
+    } else if (tag === "ul" || tag === "ol") {
+        wrapper = document.createElement(tag);
+        wrapper.setAttribute("data-ce", id);
+        wrapper.setAttribute("data-tag", tag);
+        var li = document.createElement("li");
+        li.textContent = "List item";
+        li.contentEditable = "true";
+        wrapper.appendChild(li);
+    } else if (tag === "blockquote") {
+        wrapper = document.createElement("blockquote");
+        wrapper.setAttribute("data-ce", id);
+        wrapper.setAttribute("data-tag", tag);
+        wrapper.contentEditable = "true";
+        wrapper.textContent = "Quote text";
+        wrapper.style.borderLeft = "4px solid #ccc";
+        wrapper.style.paddingLeft = "12px";
+        wrapper.style.margin = "10px 0";
+        wrapper.style.color = "#555";
+    } else if (tag === "div") {
+        wrapper = document.createElement("div");
+        wrapper.setAttribute("data-ce", id);
+        wrapper.setAttribute("data-tag", "div");
+        wrapper.style.padding = "20px";
+        wrapper.style.border = "1px dashed #ccc";
+        wrapper.style.minHeight = "60px";
+        wrapper.contentEditable = "true";
+        wrapper.textContent = "Container — type here or nest elements";
+    } else {
+        // h1-h3, p
+        wrapper = document.createElement(tag);
+        wrapper.setAttribute("data-ce", id);
+        wrapper.setAttribute("data-tag", tag);
+        wrapper.contentEditable = "true";
+        wrapper.textContent = tag === "p" ? "Your text here..." :
+                              tag === "h1" ? "Heading" :
+                              tag === "h2" ? "Sub Heading" : "Heading 3";
+    }
+
+    // drag handle + delete handle
+    addHandles(wrapper);
+    makeDraggable(wrapper);
+
+    canvasEl.appendChild(wrapper);
+    selectElement(wrapper);
+    return wrapper;
+}
+
+function addElementFromData(data) {
+    // Rebuild an element from saved JSON
+    var id = createCeId();
+    var tag = data.tag || "div";
+    var el;
+
+    if (tag === "spacer") {
+        el = document.createElement("div");
+        el.className = "ce-spacer-el";
+    } else if (tag === "img") {
+        el = document.createElement("div");
+        var img = document.createElement("img");
+        img.src = data.src || "";
+        img.style.maxWidth = "100%";
+        img.style.display = "block";
+        if (data.alt) img.alt = data.alt;
+        el.appendChild(img);
+    } else if (tag === "hr") {
+        el = document.createElement("hr");
+    } else if (tag === "a") {
+        el = document.createElement("div");
+        var link = document.createElement("a");
+        link.href = data.href || "#";
+        link.textContent = data.text || "Link";
+        link.contentEditable = "true";
+        link.style.color = data.linkColor || "#4f46e5";
+        link.addEventListener("click", function(e){ e.preventDefault(); });
+        el.appendChild(link);
+    } else if (tag === "ul" || tag === "ol") {
+        el = document.createElement(tag);
+        (data.items || ["Item"]).forEach(function(txt){
+            var li = document.createElement("li");
+            li.textContent = txt;
+            li.contentEditable = "true";
+            el.appendChild(li);
+        });
+    } else {
+        el = document.createElement(tag === "blockquote" ? "blockquote" : tag);
+        el.contentEditable = "true";
+        el.innerHTML = data.html || data.text || "";
+    }
+
+    el.setAttribute("data-ce", id);
+    el.setAttribute("data-tag", tag);
+    if (data.style) el.setAttribute("style", data.style);
+    if (data.className) el.className = (el.className ? el.className + " " : "") + data.className;
+    addHandles(el);
+    makeDraggable(el);
+    canvasEl.appendChild(el);
+    return el;
+}
+
+function addHandles(el) {
+    var drag = document.createElement("span");
+    drag.className = "ce-drag-handle";
+    drag.textContent = "⠿";
+    drag.setAttribute("draggable", "true");
+    el.appendChild(drag);
+
+    var del = document.createElement("span");
+    del.className = "ce-del-handle";
+    del.textContent = "×";
+    del.addEventListener("click", function(e){
+        e.stopPropagation();
+        if (selectedEl === el) { selectedEl = null; clearProps(); }
+        el.remove();
+    });
+    el.appendChild(del);
+}
+
+// ── Selection ──
+canvasEl.addEventListener("click", function(e){
+    var target = e.target.closest("[data-ce]");
+    if (target && canvasEl.contains(target)) {
+        selectElement(target);
+    } else {
+        deselectAll();
+    }
+});
+
+function selectElement(el) {
+    deselectAll();
+    el.classList.add("ce-selected");
+    selectedEl = el;
+    showProps(el);
+}
+
+function deselectAll() {
+    var prev = canvasEl.querySelectorAll(".ce-selected");
+    for (var i=0;i<prev.length;i++) prev[i].classList.remove("ce-selected");
+    selectedEl = null;
+    clearProps();
+}
+
+// ── Drag & drop reorder ──
+function makeDraggable(el) {
+    var handle = el.querySelector(".ce-drag-handle");
+    if (!handle) return;
+    handle.addEventListener("dragstart", function(e){
+        dragSrcEl = el;
+        el.style.opacity = ".4";
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", el.getAttribute("data-ce"));
+    });
+    handle.addEventListener("dragend", function(){
+        el.style.opacity = "";
+        removeDropIndicators();
+        dragSrcEl = null;
+    });
+    el.addEventListener("dragover", function(e){
+        if (!dragSrcEl || dragSrcEl === el) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        showDropIndicator(el, e);
+    });
+    el.addEventListener("dragleave", function(){
+        removeDropIndicators();
+    });
+    el.addEventListener("drop", function(e){
+        e.preventDefault();
+        if (!dragSrcEl || dragSrcEl === el) return;
+        var rect = el.getBoundingClientRect();
+        var midY = rect.top + rect.height / 2;
+        if (e.clientY < midY) {
+            canvasEl.insertBefore(dragSrcEl, el);
+        } else {
+            canvasEl.insertBefore(dragSrcEl, el.nextSibling);
+        }
+        removeDropIndicators();
+    });
+}
+
+function showDropIndicator(target, e) {
+    removeDropIndicators();
+    var ind = document.createElement("div");
+    ind.className = "ce-drop-indicator";
+    var rect = target.getBoundingClientRect();
+    var midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+        canvasEl.insertBefore(ind, target);
+    } else {
+        canvasEl.insertBefore(ind, target.nextSibling);
+    }
+}
+
+function removeDropIndicators() {
+    var inds = canvasEl.querySelectorAll(".ce-drop-indicator");
+    for (var i=0;i<inds.length;i++) inds[i].remove();
+}
+
+// ── Properties panel ──
+function clearProps() {
+    document.getElementById("propsContent").innerHTML = '<p class="ce-props-hint">Select an element on the canvas.</p>';
+}
+
+function showProps(el) {
+    var tag = el.getAttribute("data-tag") || el.tagName.toLowerCase();
+    var html = '<label>Type</label><input value="'+tag+'" disabled>';
+
+    // Classes
+    var cls = el.className.replace(/ce-\S*/g,"").trim();
+    html += '<label>CSS Classes</label><input id="propClass" value="'+esc(cls)+'">';
+
+    // Inline style
+    var st = el.getAttribute("style") || "";
+    html += '<label>Inline Style</label><textarea id="propStyle">'+esc(st)+'</textarea>';
+
+    // Tag-specific
+    if (tag === "img") {
+        var img = el.querySelector("img");
+        html += '<label>Image URL</label><input id="propSrc" value="'+esc(img?img.src:"")+'">';
+        html += '<label>Alt Text</label><input id="propAlt" value="'+esc(img?img.alt:"")+'">';
+    } else if (tag === "a") {
+        var a = el.querySelector("a");
+        html += '<label>Link URL</label><input id="propHref" value="'+esc(a?a.href:"")+'">';
+        html += '<label>Link Color</label><input type="color" id="propLinkColor" value="'+(a?rgbToHex(a.style.color):"#4f46e5")+'">';
+    } else if (tag === "spacer") {
+        var curH = parseInt(el.style.height) || 40;
+        html += '<label>Height (px)</label><input type="number" id="propSpacerH" value="'+curH+'" min="10" max="400">';
+    }
+
+    // Font size
+    html += '<label>Font Size</label><input id="propFontSize" value="'+esc(el.style.fontSize || "")+'" placeholder="e.g. 18px">';
+    // Color
+    html += '<label>Text Color</label><input type="color" id="propColor" value="'+(rgbToHex(el.style.color) || "#000000")+'">';
+
+    html += '<button class="ce-btn ce-btn-ghost" style="margin-top:12px;width:100%" id="propApply">Apply</button>';
+    document.getElementById("propsContent").innerHTML = html;
+
+    document.getElementById("propApply").addEventListener("click", function(){ applyProps(el); });
+}
+
+function applyProps(el) {
+    var tag = el.getAttribute("data-tag") || "";
+    var cls = (document.getElementById("propClass")||{}).value||"";
+    // Preserve internal classes
+    var internal = (el.className.match(/ce-\S*/g)||[]).join(" ");
+    el.className = (internal + " " + cls).trim();
+
+    el.setAttribute("style", (document.getElementById("propStyle")||{}).value||"");
+
+    if (tag === "img") {
+        var img = el.querySelector("img");
+        if (img) {
+            img.src = (document.getElementById("propSrc")||{}).value||"";
+            img.alt = (document.getElementById("propAlt")||{}).value||"";
+        }
+    } else if (tag === "a") {
+        var a = el.querySelector("a");
+        if (a) {
+            a.href = (document.getElementById("propHref")||{}).value||"#";
+            a.style.color = (document.getElementById("propLinkColor")||{}).value||"";
+        }
+    } else if (tag === "spacer") {
+        el.style.height = ((document.getElementById("propSpacerH")||{}).value||40)+"px";
+    }
+
+    var fs = (document.getElementById("propFontSize")||{}).value;
+    if (fs) el.style.fontSize = fs;
+    var fc = (document.getElementById("propColor")||{}).value;
+    if (fc) el.style.color = fc;
+}
+
+function esc(s) { return (s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+
+function rgbToHex(rgb) {
+    if (!rgb) return "#000000";
+    if (rgb.charAt(0) === "#") return rgb;
+    var m = rgb.match(/\d+/g);
+    if (!m || m.length < 3) return "#000000";
+    return "#" + ((1<<24)+(parseInt(m[0])<<16)+(parseInt(m[1])<<8)+parseInt(m[2])).toString(16).slice(1);
+}
+
+// ── Toolbar clicks ──
+document.querySelectorAll(".ce-tool[data-tag]").forEach(function(btn){
+    btn.addEventListener("click", function(){ addElement(btn.getAttribute("data-tag")); });
+});
+
+// Background colour
+document.getElementById("btnBgColor").addEventListener("click", function(){
+    var c = prompt("Background color (hex or CSS):", canvasEl.style.backgroundColor || "#ffffff");
+    if (c !== null) canvasEl.style.backgroundColor = c;
+});
+document.getElementById("btnBgImage").addEventListener("click", function(){
+    var url = prompt("Background image URL:", "");
+    if (url !== null && url.trim()) {
+        canvasEl.style.backgroundImage = "url('"+url.trim()+"')";
+        canvasEl.style.backgroundSize = "cover";
+    } else if (url !== null) {
+        canvasEl.style.backgroundImage = "";
+    }
+});
+
+// ── Code view toggle ──
+var codeViewOpen = false;
+document.getElementById("btnCodeView").addEventListener("click", function(){
+    codeViewOpen = !codeViewOpen;
+    this.classList.toggle("active", codeViewOpen);
+    document.getElementById("codeViewPanel").classList.toggle("hidden", !codeViewOpen);
+    document.getElementById("previewFrame").classList.add("hidden");
+    document.getElementById("btnPreview").classList.remove("active");
+    if (codeViewOpen) {
+        // Serialise canvas to HTML/CSS
+        document.getElementById("codeHTML").value = getCanvasHTML();
+        document.getElementById("codeCSS").value = getPageCSS();
+    } else {
+        // Parse code back to canvas
+        applyCodeToCanvas();
+    }
+});
+
+// ── Preview toggle ──
+var previewOpen = false;
+document.getElementById("btnPreview").addEventListener("click", function(){
+    previewOpen = !previewOpen;
+    this.classList.toggle("active", previewOpen);
+    document.getElementById("previewFrame").classList.toggle("hidden", !previewOpen);
+    document.getElementById("codeViewPanel").classList.add("hidden");
+    document.getElementById("btnCodeView").classList.remove("active");
+    codeViewOpen = false;
+    if (previewOpen) {
+        var frame = document.getElementById("previewFrame");
+        var doc = frame.contentDocument || frame.contentWindow.document;
+        doc.open();
+        doc.write(buildFullPage());
+        doc.close();
+    }
+});
+
+// ── Serialisation ──
+function getCanvasHTML() {
+    var clone = canvasEl.cloneNode(true);
+    // Remove editor UI artifacts
+    clone.querySelectorAll(".ce-drag-handle,.ce-del-handle,.ce-drop-indicator").forEach(function(h){ h.remove(); });
+    clone.querySelectorAll("[data-ce]").forEach(function(el){
+        el.removeAttribute("data-ce");
+        el.removeAttribute("contenteditable");
+        el.classList.remove("ce-selected","ce-spacer-el");
+        // Convert spacers to plain divs with height
+        if (el.getAttribute("data-tag") === "spacer") {
+            el.style.height = el.style.height || "40px";
+        }
+        el.removeAttribute("data-tag");
+        // Clean empty class attrs
+        if (el.className.trim() === "") el.removeAttribute("class");
+    });
+    return clone.innerHTML.trim();
+}
+
+function getPageCSS() {
+    // If user typed custom CSS in code view, return that; otherwise return canvas bg
+    var existing = document.getElementById("codeCSS").value.trim();
+    if (existing) return existing;
+    var css = "";
+    if (canvasEl.style.backgroundColor) css += "body { background-color: " + canvasEl.style.backgroundColor + "; }\n";
+    if (canvasEl.style.backgroundImage) css += "body { background-image: " + canvasEl.style.backgroundImage + "; background-size: cover; }\n";
+    return css;
+}
+
+function applyCodeToCanvas() {
+    var htmlStr = document.getElementById("codeHTML").value;
+    canvasEl.innerHTML = htmlStr;
+    // Re-wrap elements with editor affordances
+    var children = Array.from(canvasEl.children);
+    children.forEach(function(child){
+        var tag = child.tagName.toLowerCase();
+        child.setAttribute("data-ce", createCeId());
+        child.setAttribute("data-tag", tag);
+        if (tag !== "hr" && tag !== "img") child.contentEditable = "true";
+        addHandles(child);
+        makeDraggable(child);
+    });
+    // Apply CSS bg
+    var css = document.getElementById("codeCSS").value;
+    var bgMatch = css.match(/background-color:\s*([^;]+)/);
+    if (bgMatch) canvasEl.style.backgroundColor = bgMatch[1].trim();
+    var biMatch = css.match(/background-image:\s*([^;]+)/);
+    if (biMatch) canvasEl.style.backgroundImage = biMatch[1].trim();
+}
+
+function buildFullPage() {
+    var css = codeViewOpen ? document.getElementById("codeCSS").value : getPageCSS();
+    var html = codeViewOpen ? document.getElementById("codeHTML").value : getCanvasHTML();
+    return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + css + '</style></head><body>' + html + '</body></html>';
+}
+
+function buildPageJSON() {
+    var elements = [];
+    var items = canvasEl.querySelectorAll("[data-ce]");
+    items.forEach(function(el){
+        var tag = el.getAttribute("data-tag") || el.tagName.toLowerCase();
+        var obj = { tag: tag, style: el.getAttribute("style") || "" };
+        // Remove editor-only styles
+        obj.style = obj.style.replace(/opacity:\s*[^;]+;?/g, "").trim();
+
+        if (tag === "img") {
+            var img = el.querySelector("img");
+            obj.src = img ? img.src : "";
+            obj.alt = img ? img.alt : "";
+        } else if (tag === "a") {
+            var a = el.querySelector("a");
+            obj.href = a ? a.href : "#";
+            obj.text = a ? a.textContent : "";
+            obj.linkColor = a ? a.style.color : "";
+        } else if (tag === "ul" || tag === "ol") {
+            obj.items = [];
+            el.querySelectorAll("li").forEach(function(li){ obj.items.push(li.textContent); });
+        } else if (tag === "spacer") {
+            obj.style = "height:" + (el.style.height || "40px");
+        } else if (tag === "hr") {
+            // nothing extra
+        } else {
+            // Clone and remove handles for clean HTML
+            var clone = el.cloneNode(true);
+            clone.querySelectorAll(".ce-drag-handle,.ce-del-handle").forEach(function(h){ h.remove(); });
+            obj.html = clone.innerHTML;
+        }
+
+        var cls = el.className.replace(/ce-\S*/g,"").trim();
+        if (cls) obj.className = cls;
+        elements.push(obj);
+    });
+    var result = { elements: elements };
+    if (canvasEl.style.backgroundColor) result.bgColor = canvasEl.style.backgroundColor;
+    if (canvasEl.style.backgroundImage) result.bgImage = canvasEl.style.backgroundImage;
+    if (canvasEl.style.backgroundSize) result.bgSize = canvasEl.style.backgroundSize;
+    return result;
+}
+
+// ── Save ──
+document.getElementById("btnSave").addEventListener("click", function(){
+    var title = document.getElementById("pageTitle").value.trim() || "Untitled Page";
+    var slug = document.getElementById("pageSlug").value.trim();
+    if (!slug) {
+        slug = title.toLowerCase().replace(/[^\w\s-]/g,"").replace(/[\s_]+/g,"-").replace(/-+/g,"-").substring(0,80);
+        document.getElementById("pageSlug").value = slug;
+    }
+    var body = {
+        page_id: pageId,
+        title: title,
+        slug: slug,
+        html_content: codeViewOpen ? document.getElementById("codeHTML").value : getCanvasHTML(),
+        css_content: codeViewOpen ? document.getElementById("codeCSS").value : getPageCSS(),
+        page_json: buildPageJSON(),
+        is_published: document.getElementById("publishCheck").checked
+    };
+    var btn = document.getElementById("btnSave");
+    btn.textContent = "Saving...";
+    btn.disabled = true;
+    fetch("/create/save", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(body)
+    }).then(function(r){ return r.json(); }).then(function(data){
+        if (data.ok) {
+            pageId = data.page_id;
+            document.getElementById("pageSlug").value = data.slug;
+            btn.textContent = "Saved ✓";
+            setTimeout(function(){ btn.textContent = "Save"; btn.disabled = false; }, 1500);
+        } else {
+            alert("Save failed: " + (data.detail||"unknown error"));
+            btn.textContent = "Save";
+            btn.disabled = false;
+        }
+    }).catch(function(err){
+        alert("Save error: " + err.message);
+        btn.textContent = "Save";
+        btn.disabled = false;
+    });
+});
+
+// ── Keyboard shortcuts ──
+document.addEventListener("keydown", function(e){
+    // Ctrl+S = save
+    if ((e.ctrlKey||e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        document.getElementById("btnSave").click();
+    }
+    // Delete selected element
+    if (e.key === "Delete" && selectedEl && document.activeElement === document.body) {
+        selectedEl.remove();
+        selectedEl = null;
+        clearProps();
+    }
+});
+
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,696 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if selected_server %}
+<div class="chat-experimental-link">
+    <a class="btn-outline" href="/chat-ex/">Open Experimental UI</a>
+</div>
+{% else %}
+<div class="chat-experimental-link">
+    <a class="btn-outline" href="/chat-ex/">Open Experimental UI</a>
+</div>
+{% endif %}
+<div class="chat-layout">
+    <div class="left-rail">
+        <aside class="chat-panel members">
+            {% if selected_server %}
+            <h3>Members</h3>
+            <ul class="simple-list">
+                {% for member in members %}
+                <li class="member-line">
+                    <span class="member-ident">
+                    {% if member.user %}
+                    {% set member_name = member.user.display_name or member.user.username %}
+                    <a href="/users/{{ member.user.username }}" class="member-avatar" title="{{ member_name }}">
+                        {% if member.user.avatar_url %}
+                        <img src="{{ member.user.avatar_url }}" alt="{{ member_name }}">
+                        {% else %}
+                        {{ (member_name[:1])|upper }}
+                        {% endif %}
+                    </a>
+                    <a href="/users/{{ member.user.username }}">{{ member_name }}</a>
+                    {% else %}
+                    <span class="member-avatar">U</span>
+                    <span>Unknown User</span>
+                    {% endif %}
+                    </span>
+                    <span class="muted">- {{ member_role_labels.get(member.id, 'member') }}</span>
+                    {% if user and member.user and member.user.id != user.id %}
+                    <a href="/chat/dm/{{ member.user.username }}" class="dm-link">Message</a>
+                    {% set unread_count = member_unread_counts.get(member.user.id, 0) %}
+                    {% if unread_count > 0 %}
+                    <span class="dm-unread">{{ unread_count }}</span>
+                    {% endif %}
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </aside>
+
+        <aside class="chat-panel channels">
+            {% if selected_server %}
+            <h3>Channels</h3>
+            <div class="channel-list">
+                {% for grp in channel_groups %}
+                <div class="channel-group-title">{{ grp.category.name if grp.category else 'Ungrouped' }}</div>
+                {% for ch in grp.channels %}
+                    {% if ch.channel_type == 'text' %}
+                    <a class="channel-item {% if selected_channel and selected_channel.id == ch.id %}active{% endif %}" href="/chat/?server_id={{ selected_server.id }}&channel_id={{ ch.id }}"># {{ ch.name }}</a>
+                    {% else %}
+                    <a class="channel-item voice {% if selected_voice_channel and selected_voice_channel.id == ch.id %}active{% endif %}" href="/chat/?server_id={{ selected_server.id }}{% if selected_channel %}&channel_id={{ selected_channel.id }}{% endif %}&voice_channel_id={{ ch.id }}">🔊 {{ ch.name }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% endfor %}
+            </div>
+            {% if selected_voice_channel %}
+            <div class="voice-dock">
+                <div class="voice-dock-header">
+                    <strong class="voice-dock-title">🔊 {{ selected_voice_channel.name }}</strong>
+                    {% if selected_voice_channel.linked_voice_room_slug %}
+                    <button id="voiceMuteBtn" type="button" class="btn-outline voice-header-btn" disabled>Mute</button>
+                    <button id="voiceDeafenBtn" type="button" class="btn-outline voice-header-btn" disabled>Deafen</button>
+                    {% endif %}
+                    <a class="voice-close" href="/chat/?server_id={{ selected_server.id }}{% if selected_channel %}&channel_id={{ selected_channel.id }}{% endif %}">Close</a>
+                </div>
+                {% if selected_voice_channel.linked_voice_room_slug %}
+                <iframe
+                    id="voiceEmbedFrame"
+                    src="/voice/rooms/{{ selected_voice_channel.linked_voice_room_slug }}?embed=1"
+                    title="Voice Room"
+                    allow="microphone; autoplay"
+                    style="width:100%; height:260px; border:0; border-radius:10px; background:var(--card);"
+                    loading="lazy">
+                </iframe>
+                {% else %}
+                <p class="muted">This voice channel has no linked room yet.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% else %}
+            <p class="muted">No chat servers yet. Ask an admin to create one in Chat Settings.</p>
+            {% endif %}
+        </aside>
+    </div>
+
+    <section class="chat-panel messages">
+        {% if selected_server and selected_channel %}
+        <div class="messages-header">
+            <div class="messages-header-title-row">
+                <h3># {{ selected_channel.name }}</h3>
+                {% if user and user.role == 'admin' %}
+                <button
+                    type="button"
+                    id="channelTopicEditToggle"
+                    class="topic-edit-toggle"
+                    title="Edit channel description"
+                    aria-label="Edit channel description">
+                    ✏
+                </button>
+                {% endif %}
+            </div>
+            {% if selected_channel.topic %}
+            <p class="channel-topic">{{ selected_channel.topic }}</p>
+            {% else %}
+            <p class="channel-topic muted">No description set for this channel.</p>
+            {% endif %}
+            {% if user and user.role == 'admin' %}
+            <form
+                id="channelTopicEditForm"
+                action="/chat/channels/{{ selected_channel.id }}/topic/update"
+                method="POST"
+                class="channel-topic-form is-hidden">
+                <input
+                    type="text"
+                    name="topic"
+                    value="{{ selected_channel.topic or '' }}"
+                    maxlength="255"
+                    placeholder="Channel description">
+                {% if selected_voice_channel %}
+                <input type="hidden" name="voice_channel_id" value="{{ selected_voice_channel.id }}">
+                {% endif %}
+                <button type="submit" class="btn-primary">Save</button>
+                <button type="button" id="channelTopicEditCancel" class="btn-outline">Cancel</button>
+            </form>
+            {% endif %}
+        </div>
+        <div class="message-list">
+            {% for m in messages %}
+            {% set author_name = (m.author.display_name if m.author and m.author.display_name else (m.author.username if m.author else 'Unknown User')) %}
+            <article class="message-item">
+                <div class="message-head">
+                    {% if m.author %}
+                    <a href="/users/{{ m.author.username }}" class="message-avatar" title="{{ author_name }}">
+                        {% if m.author.avatar_url %}
+                        <img src="{{ m.author.avatar_url }}" alt="{{ author_name }}">
+                        {% else %}
+                        {{ (author_name[:1])|upper }}
+                        {% endif %}
+                    </a>
+                    {% else %}
+                    <span class="message-avatar">U</span>
+                    {% endif %}
+                    <div class="message-meta">
+                        <strong>{{ author_name }}</strong>
+                        <span>{{ m.created_at }}</span>
+                    </div>
+                </div>
+                <p>{{ m.content }}</p>
+                {% if m.media_path %}
+                <div style="margin-top:8px;">
+                    {% if m.media_type and m.media_type.startswith('image/') %}
+                    <img src="/media/{{ m.media_path }}" alt="Chat image"
+                        style="max-width: 100%; border-radius: 10px; border: 1px solid var(--border); display: block;">
+                    {% else %}
+                    <a href="/media/{{ m.media_path }}" target="_blank" rel="noopener">View attachment</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                <div class="message-reactions">
+                    {% set counts = message_reaction_counts.get(m.id, {}) %}
+                    {% set mine = message_user_reactions.get(m.id, []) %}
+                    {% for emoji_code, count in counts.items() %}
+                    <form action="/chat/messages/{{ m.id }}/reactions/toggle" method="POST" class="reaction-form">
+                        <input type="hidden" name="emoji_code" value="{{ emoji_code }}">
+                        <button type="submit" class="reaction-chip {% if emoji_code in mine %}active{% endif %}">
+                            {{ emoji_code }} {{ count }}
+                        </button>
+                    </form>
+                    {% endfor %}
+                    <form action="/chat/messages/{{ m.id }}/reactions/toggle" method="POST" class="reaction-form">
+                        <select name="emoji_code" class="emoji-picker">
+                            <option value="">Add Reaction</option>
+                            {% for emoji in emojis %}
+                            <option value="{{ emoji.unicode_char or (':' ~ emoji.short_code ~ ':') }}">{{ emoji.unicode_char or (':' ~ emoji.short_code ~ ':') }}</option>
+                            {% endfor %}
+                            <option value="😀">😀</option>
+                            <option value="😂">😂</option>
+                            <option value="❤️">❤️</option>
+                            <option value="👍">👍</option>
+                            <option value="🎉">🎉</option>
+                        </select>
+                        <button type="submit" class="btn-outline">Add</button>
+                    </form>
+                    {% if user and m.author_user_id == user.id %}
+                    <form action="/chat/messages/{{ m.id }}/delete" method="POST" class="delete-item-form">
+                        <button type="submit" class="delete-icon-btn" title="Delete message"
+                            onclick="return confirm('Delete this message?');">
+                            🗑️
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+            {% if not messages %}
+            <p class="muted">No messages yet.</p>
+            {% endif %}
+        </div>
+        {% if can_send_selected_channel %}
+        <form action="/chat/channels/{{ selected_channel.id }}/messages/send" method="POST" enctype="multipart/form-data" class="compose-form">
+            <textarea name="content" rows="3" placeholder="Write a message..."></textarea>
+            <div class="composer-tools">
+                <label class="btn-outline" style="cursor:pointer;">
+                    Attach Image
+                    <input type="file" name="image" accept="image/*" style="display:none;">
+                </label>
+            </div>
+            <button class="btn-primary" type="submit">Send</button>
+        </form>
+        {% else %}
+        <p class="muted">You can view this channel but do not have permission to send messages.</p>
+        {% endif %}
+        {% else %}
+        <p class="muted">Select a text channel.</p>
+        {% endif %}
+    </section>
+</div>
+
+<style>
+    .chat-experimental-link {
+        margin-bottom: 12px;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .chat-layout {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+    }
+
+    .left-rail {
+        display: grid;
+        gap: 14px;
+    }
+
+    .chat-panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+    }
+
+    .chat-panel h3 {
+        margin: 0 0 10px 0;
+        font-size: 0.95rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .server-list,
+    .channel-list {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .channel-group-title {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-top: 6px;
+    }
+
+    .voice-dock {
+        margin-top: 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px;
+        background: var(--bg);
+    }
+
+    .voice-dock-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+    }
+
+    .voice-dock-title {
+        margin-right: auto;
+    }
+
+    .voice-header-btn {
+        padding: 5px 10px;
+        font-size: 0.8rem;
+    }
+
+    .voice-header-btn.is-active {
+        border-color: #22c55e;
+        color: #166534;
+        background: rgba(34, 197, 94, 0.14);
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.22), 0 0 16px rgba(34, 197, 94, 0.2);
+    }
+
+    .voice-close {
+        font-size: 0.8rem;
+    }
+
+    .server-item,
+    .channel-item {
+        text-decoration: none;
+        color: var(--text);
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--bg);
+    }
+
+    .server-item.active,
+    .channel-item.active {
+        border-color: var(--primary);
+        background: rgba(79, 70, 229, 0.08);
+    }
+
+    .server-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: var(--primary);
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .message-list {
+        max-height: 58vh;
+        overflow-y: auto;
+        display: grid;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .messages-header {
+        margin-bottom: 10px;
+    }
+
+    .messages-header-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .messages-header-title-row h3 {
+        margin: 0;
+    }
+
+    .channel-topic {
+        margin: 6px 0 0 0;
+    }
+
+    .topic-edit-toggle {
+        margin-left: auto;
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text-muted);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        line-height: 1;
+    }
+
+    .topic-edit-toggle:hover {
+        color: var(--text);
+        border-color: var(--primary);
+    }
+
+    .channel-topic-form {
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .channel-topic-form input[name="topic"] {
+        flex: 1;
+        min-width: 180px;
+    }
+
+    .channel-topic-form.is-hidden {
+        display: none;
+    }
+
+    .message-item {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        background: var(--bg);
+    }
+
+    .message-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .message-avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: var(--card);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-decoration: none;
+        overflow: hidden;
+        flex: 0 0 auto;
+    }
+
+    .message-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .message-item p {
+        margin: 8px 0 0 0;
+        white-space: pre-wrap;
+    }
+
+    .message-reactions {
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .reaction-form {
+        display: inline-flex;
+        margin: 0;
+    }
+
+    .delete-item-form {
+        margin: 0 0 0 auto;
+        display: inline-flex;
+    }
+
+    .reaction-chip {
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 2px 8px;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+
+    .reaction-chip.active {
+        border-color: var(--primary);
+        background: rgba(79, 70, 229, 0.12);
+    }
+
+    .delete-icon-btn {
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-muted);
+        border-radius: 8px;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.85rem;
+        line-height: 1;
+    }
+
+    .delete-icon-btn:hover {
+        color: #dc2626;
+        border-color: #dc2626;
+        background: rgba(220, 38, 38, 0.08);
+    }
+
+    .message-meta {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .stack-form {
+        display: grid;
+        gap: 8px;
+    }
+
+    .compose-form {
+        display: grid;
+        gap: 8px;
+    }
+
+    .composer-tools {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .emoji-picker {
+        min-width: 150px;
+    }
+
+    .simple-list {
+        margin: 0 0 12px 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 6px;
+    }
+
+    .member-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .member-ident {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .member-avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: var(--card);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-decoration: none;
+        overflow: hidden;
+        flex: 0 0 auto;
+    }
+
+    .member-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .emoji-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+
+    .muted {
+        color: var(--text-muted);
+    }
+
+    .dm-link {
+        margin-left: 8px;
+        font-size: 0.8rem;
+    }
+
+    .dm-unread {
+        margin-left: 6px;
+        display: inline-flex;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: #dc2626;
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 700;
+        align-items: center;
+        justify-content: center;
+    }
+
+    @media (max-width: 1180px) {
+        .chat-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+<script>
+    (function () {
+        const toggleBtn = document.getElementById("channelTopicEditToggle");
+        const form = document.getElementById("channelTopicEditForm");
+        const cancelBtn = document.getElementById("channelTopicEditCancel");
+        if (!toggleBtn || !form) return;
+
+        toggleBtn.addEventListener("click", function () {
+            form.classList.toggle("is-hidden");
+            if (!form.classList.contains("is-hidden")) {
+                const input = form.querySelector("input[name='topic']");
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            }
+        });
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener("click", function () {
+                form.classList.add("is-hidden");
+            });
+        }
+    })();
+
+    (function () {
+        const frame = document.getElementById("voiceEmbedFrame");
+        const muteBtn = document.getElementById("voiceMuteBtn");
+        const deafenBtn = document.getElementById("voiceDeafenBtn");
+        if (!frame) return;
+
+        function postToVoice(type) {
+            if (!frame.contentWindow) return;
+            frame.contentWindow.postMessage({ type }, window.location.origin);
+        }
+
+        function applyVoiceState(state) {
+            const connected = !!(state && state.connected);
+            const hasMic = !!(state && state.hasMic);
+            const muted = !!(state && state.muted);
+            const deafened = !!(state && state.deafened);
+
+            if (muteBtn) {
+                muteBtn.disabled = !(connected && hasMic);
+                muteBtn.textContent = muted ? "Unmute" : "Mute";
+                muteBtn.classList.toggle("is-active", muted);
+            }
+            if (deafenBtn) {
+                deafenBtn.disabled = !connected;
+                deafenBtn.textContent = deafened ? "Undeafen" : "Deafen";
+                deafenBtn.classList.toggle("is-active", deafened);
+            }
+        }
+
+        if (muteBtn) {
+            muteBtn.addEventListener("click", function () {
+                postToVoice("voice-toggle-mute");
+            });
+        }
+        if (deafenBtn) {
+            deafenBtn.addEventListener("click", function () {
+                postToVoice("voice-toggle-deafen");
+            });
+        }
+
+        window.addEventListener("message", function (event) {
+            if (event.origin !== window.location.origin) return;
+            if (!event.data || event.data.type !== "voice-state") return;
+            applyVoiceState(event.data);
+        });
+
+        frame.addEventListener("load", function () {
+            postToVoice("voice-request-state");
+        });
+
+        applyVoiceState({ connected: false, hasMic: false, muted: false, deafened: false });
+    })();
+</script>
+{% endblock %}

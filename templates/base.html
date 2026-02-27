@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ node_name }} | {{ platform_name or 'HOMEPAGE' }}</title>
+    <link rel="stylesheet" href="/static/fonts/inter.css">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --primary-dark: #3730a3;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: all 0.2s ease-in-out;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .container-embed {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            padding: 8px;
+        }
+
+        nav {
+            display: flex;
+            gap: 8px;
+        }
+
+        .header-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header .container {
+            height: 64px;
+            display: flex;
+            align-items: center;
+        }
+
+        header h1 {
+            cursor: pointer;
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.025em;
+        }
+
+        .server-switch {
+            min-width: 240px;
+            max-width: 360px;
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--card);
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        /* Module Bar Styles */
+        .module-bar {
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 30px;
+            padding: 8px 0;
+            position: sticky;
+            top: 65px;
+            /* Height of header + border approx */
+            z-index: 90;
+            box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+        }
+
+        .module-nav {
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+            padding-bottom: 0;
+        }
+
+        .module-link {
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 6px 14px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg);
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+
+        .module-link:hover {
+            background: rgba(79, 70, 229, 0.08);
+            color: var(--primary);
+            border-color: rgba(79, 70, 229, 0.2);
+        }
+
+        .module-icon {
+            font-size: 1.1em;
+        }
+
+        .module-mail-link {
+            position: relative;
+        }
+
+        .module-mail-link.has-alert .module-icon {
+            color: #dc2626;
+        }
+
+        .module-alert-badge {
+            margin-left: 4px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #dc2626;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 800;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        nav {
+            display: flex;
+            gap: 8px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.9rem;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+        }
+
+        nav a:hover {
+            color: var(--primary);
+            background: rgba(79, 70, 229, 0.05);
+        }
+
+        nav a.active {
+            color: var(--primary);
+            background: rgba(79, 70, 229, 0.08);
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: scale(1.02);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid var(--border);
+            color: var(--text);
+            padding: 9px 23px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-outline:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(79, 70, 229, 0.05);
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            font-family: inherit;
+            background: #f8fafc;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .post-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .user-avatar {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #475569;
+            margin-right: 14px;
+            overflow: hidden;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Reusable small avatar chip for admin/family tables */
+        .user-avatar-small {
+            overflow: hidden;
+        }
+
+        .user-avatar-small img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+        }
+
+        .post-meta {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 1rem;
+        }
+
+        .post-date {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .post-content {
+            font-size: 1.05rem;
+            color: var(--text);
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+        }
+
+        .post-footer {
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .signature {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: var(--bg);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        footer {
+            margin-top: 80px;
+            padding: 40px 0;
+            text-align: center;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Global Theme Presets */
+        body.theme-ocean {
+            --bg: #f0f9ff;
+            --primary: #0ea5e9;
+            --primary-light: #7dd3fc;
+        }
+
+        body.theme-sunset {
+            --bg: #fffaf5;
+            --primary: #f43f5e;
+            --primary-light: #fb7185;
+        }
+
+        body.theme-forest {
+            --bg: #f0fdf4;
+            --primary: #059669;
+            --primary-light: #34d399;
+        }
+
+        body.theme-midnight {
+            --bg: #020617;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --card: #0f172a;
+            --border: #1e293b;
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+        }
+
+        body.theme-midnight header {
+            background: rgba(15, 23, 42, 0.8);
+            border-bottom-color: #1e293b;
+        }
+
+        body.theme-midnight input,
+        body.theme-midnight textarea {
+            background: #1e293b;
+            color: white;
+        }
+
+        body.theme-midnight nav a:hover {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        body.theme-retro {
+            --bg: #c0c0c0;
+            --text: #000;
+            --card: #c0c0c0;
+            --primary: #000080;
+            --border: #808080;
+            font-family: 'Courier New', Courier, monospace !important;
+        }
+
+        body.theme-retro * {
+            border-radius: 0 !important;
+            transition: none !important;
+        }
+
+        body.theme-retro .card {
+            border: 2px solid #fff;
+            border-right-color: #808080;
+            border-bottom-color: #808080;
+            box-shadow: none;
+        }
+
+        body.theme-retro .btn-primary {
+            background: #c0c0c0;
+            color: #000;
+            border: 2px solid #fff;
+            border-right-color: #808080;
+            border-bottom-color: #808080;
+        }
+
+        body.theme-retro header {
+            background: #c0c0c0;
+            border-bottom: 2px solid #808080;
+        }
+
+        /* Mobile specific adjustments */
+        @media (max-width: 640px) {
+            header .container {
+                flex-direction: column;
+                height: auto;
+                padding: 15px 0;
+                gap: 15px;
+            }
+
+            header h1 {
+                font-size: 1.2rem;
+            }
+
+            nav {
+                overflow-x: auto;
+                width: 100%;
+                justify-content: center;
+                padding-bottom: 5px;
+            }
+
+            nav a {
+                padding: 6px 12px;
+                font-size: 0.85rem;
+                flex-shrink: 0;
+            }
+
+            .card {
+                padding: 20px;
+            }
+        }
+    </style>
+    <script src="/static/htmx.min.js"></script>
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body class="theme-{{ user.theme_preset if user and user.theme_preset else 'default' }}">
+    {% set _embed_minimal = embed_minimal if embed_minimal is defined else false %}
+    {% if not _embed_minimal %}
+    <header>
+        <div class="container">
+            <div class="header-main">
+                {% if user %}
+                <select id="server-switcher" class="server-switch" aria-label="Server Switcher">
+                </select>
+                {% else %}
+                <h1 onclick="window.location.href='/'">{{ node_name }}</h1>
+                {% endif %}
+                <nav class="user-nav">
+                    <a href="/">Home</a>
+                    <a href="/users/me">Profile</a>
+                    {% if user %}
+                    {% if user.role in ['adult', 'parent', 'admin'] %}
+                    <a href="/admin/family">👨‍👩‍👧‍👦 Family</a>
+                    {% endif %}
+                    {% if user.role == 'admin' %}
+                    <a href="/admin/dashboard">📊 Dashboard</a>
+                    <a href="/admin/settings">⚙️ Admin Settings</a>
+                    {% endif %}
+                    {% else %}
+                    <a href="/auth/register">Join</a>
+                    <a href="/auth/login">Login</a>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+    </header>
+    {% endif %}
+
+    {% if not _embed_minimal and user and active_modules and active_modules|length > 0 %}
+    {% set module_bar_modules = visible_module_bar_modules if visible_module_bar_modules is defined else active_modules %}
+    {% set module_bar_config = user.module_bar_config if user and user.module_bar_config else '' %}
+    <div class="module-bar">
+        <div class="container">
+            <nav class="module-nav">
+                {% for module in module_bar_modules %}
+                {% set hide_module = false %}
+                {% if module_bar_config and '"hidden_modules"' in module_bar_config and ('"' ~ module.name ~ '"') in module_bar_config %}
+                {% set hide_module = true %}
+                {% endif %}
+                {% if not hide_module %}
+                {% if module.name == 'feed' %}
+                <a href="/feed" class="module-link"><span class="module-icon">{{ module.icon }}</span> Feed</a>
+                {% elif module.name == 'discovery' %}
+                <a href="/community/" class="module-link"><span class="module-icon">{{ module.icon }}</span>
+                    Community</a>
+                {% elif module.name == 'calendar' %}
+                <a href="/calendar" class="module-link"><span class="module-icon">{{ module.icon }}</span> Calendar</a>
+                {% elif module.name == 'games' %}
+                <a href="/games" class="module-link"><span class="module-icon">{{ module.icon }}</span> Games</a>
+                {% elif module.name == 'wikipedia' %}
+                <a href="/wikipedia" class="module-link"><span class="module-icon">{{ module.icon }}</span>
+                    Wikipedia</a>
+                {% elif module.name == 'voice' %}
+                <a href="/voice/" class="module-link"><span class="module-icon">{{ module.icon }}</span>
+                    Voice</a>
+                {% elif module.name == 'mail' %}
+                <a href="/mail" class="module-link module-mail-link" id="module-mail-link">
+                    <span class="module-icon">{{ module.icon }}</span>
+                    Mail
+                    <span class="module-alert-badge" id="module-mail-unread-badge" style="display: none;" aria-label="Unread mail"></span>
+                </a>
+                {% elif module.name == 'chat' %}
+                <a href="/chat" class="module-link"><span class="module-icon">{{ module.icon }}</span>
+                    Chat</a>
+                {% elif module.name == 'create' %}
+                <a href="/create" class="module-link"><span class="module-icon">{{ module.icon }}</span>
+                    Create</a>
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+    <main class="{% if _embed_minimal %}container-embed{% else %}container{% endif %}">
+        {% block content %}{% endblock %}
+    </main>
+    {% if not _embed_minimal %}
+    <footer>
+        <div class="container">
+            <p>{{ platform_name or 'HOMEPAGE' }} Node v0.1.0 &bull; Powered by ActivityPub</p>
+            <p style="margin-top: 8px; font-size: 0.8rem;">
+                Server ID: <code id="server-id-display">loading...</code>
+            </p>
+            {% if user %}
+            <form action="/auth/logout" method="POST" style="margin-top: 14px;">
+                <button type="submit" class="btn-outline">Sign Out</button>
+            </form>
+            {% endif %}
+        </div>
+    </footer>
+    {% endif %}
+    {% if not _embed_minimal %}
+    <script>
+        (async function () {
+            const switcher = document.getElementById('server-switcher');
+            if (!switcher) return;
+            try {
+                const current = new URL(window.location.href);
+                const onChatEx = current.pathname.startsWith('/chat-ex');
+                const onChatClassic = current.pathname.startsWith('/chat') && !onChatEx;
+                const onChat = onChatClassic || onChatEx;
+                const apiPath = onChatEx ? '/chat-ex/api/servers' : '/chat/api/servers';
+                const chatBasePath = onChatEx ? '/chat-ex/' : '/chat/';
+                const selectedServerId = current.searchParams.get('server_id');
+                const res = await fetch(apiPath, { credentials: 'same-origin' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const servers = (data && Array.isArray(data.servers)) ? data.servers : [];
+
+                if (servers.length === 0) {
+                    // No chat servers at all — just show node name
+                    const solo = document.createElement('option');
+                    solo.value = 'home';
+                    solo.textContent = '{{ node_name }}';
+                    switcher.appendChild(solo);
+                } else {
+                    for (const s of servers) {
+                        const opt = document.createElement('option');
+                        opt.value = String(s.id);
+                        opt.textContent = s.name || ('Server #' + s.id);
+                        if (onChat && selectedServerId && String(selectedServerId) === String(s.id)) {
+                            opt.selected = true;
+                        }
+                        switcher.appendChild(opt);
+                    }
+                    // If not on a chat page, select the first server but don't navigate
+                    if (!onChat) {
+                        switcher.value = String(servers[0].id);
+                    }
+                }
+
+                // Separator + "Connect to another server…"
+                const sep = document.createElement('option');
+                sep.disabled = true;
+                sep.textContent = '───────────────';
+                switcher.appendChild(sep);
+                const connectOpt = document.createElement('option');
+                connectOpt.value = '__connect__';
+                connectOpt.textContent = '＋ Connect to another server…';
+                if (current.pathname === '/connect-server') connectOpt.selected = true;
+                switcher.appendChild(connectOpt);
+
+                switcher.addEventListener('change', function () {
+                    if (switcher.value === '__connect__') {
+                        window.location.href = '/connect-server';
+                        return;
+                    }
+                    if (switcher.value) {
+                        window.location.href = chatBasePath + '?server_id=' + encodeURIComponent(switcher.value);
+                    }
+                });
+            } catch (_) {
+                // Keep header stable if chat API is unavailable.
+            }
+        })();
+
+        (async function () {
+            try {
+                const res = await fetch('/.well-known/server-id', { credentials: 'same-origin' });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data || !data.server_id) return;
+                const el = document.getElementById('server-id-display');
+                if (el) el.textContent = data.server_id;
+            } catch (_) {
+                // Keep footer stable even if metadata endpoint is unavailable.
+            }
+        })();
+
+        (async function () {
+            const mailLink = document.getElementById('module-mail-link');
+            const badge = document.getElementById('module-mail-unread-badge');
+            if (!mailLink || !badge) return;
+            try {
+                const res = await fetch('/mail/unread-count', { credentials: 'same-origin' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const unread = Number((data && data.unread_count) || 0);
+                if (unread > 0) {
+                    badge.textContent = '!';
+                    badge.title = unread + ' unread message' + (unread === 1 ? '' : 's');
+                    badge.style.display = 'inline-flex';
+                    mailLink.classList.add('has-alert');
+                } else {
+                    badge.style.display = 'none';
+                    mailLink.classList.remove('has-alert');
+                }
+            } catch (_) {
+                // Keep module bar stable if mail unread endpoint is unavailable.
+            }
+        })();
+    </script>
+    {% endif %}
+</body>
+
+</html>

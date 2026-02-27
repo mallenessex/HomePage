@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card card">
+        <div class="auth-header">
+            <h2>Join {{ node_name }}</h2>
+            <p>Create your account on {{ node_name }}.</p>
+            <p class="field-hint">Registration requires an approved join request from a server admin.</p>
+        </div>
+
+        {% if error %}
+        <div class="auth-error">{{ error }}</div>
+        {% endif %}
+
+        <form action="/auth/register/submit" method="POST">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="e.g. mike123" required
+                    autocomplete="username">
+                <p class="field-hint">Used for your handle: @username@{{ node_name }}</p>
+            </div>
+
+            <div class="form-group">
+                <label for="display_name">Display Name (Optional)</label>
+                <input type="text" id="display_name" name="display_name" placeholder="e.g. Mike Allen">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="new-password">
+                <p class="field-hint">Keep it safe! Your identity keys are tied to your account.</p>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary btn-block">Create Account</button>
+            </div>
+        </form>
+
+        <div class="auth-footer">
+            <p>Already have an account? <a href="/auth/login">Login here</a></p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 40px 0;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 450px;
+        padding: 40px;
+    }
+
+    .auth-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .auth-header h2 {
+        font-size: 2rem;
+        margin-bottom: 8px;
+        color: var(--primary);
+    }
+
+    .auth-header p {
+        color: #64748b;
+        font-size: 0.95rem;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #1e293b;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.2s, background 0.2s;
+        background: #f8fafc;
+    }
+
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--primary);
+        background: white;
+    }
+
+    .field-hint {
+        font-size: 0.8rem;
+        color: #94a3b8;
+        margin-top: 5px;
+    }
+
+    .btn-block {
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .auth-footer {
+        margin-top: 30px;
+        text-align: center;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 20px;
+        color: #64748b;
+        font-size: 0.9rem;
+    }
+
+    .auth-footer a {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .auth-footer a:hover {
+        text-decoration: underline;
+    }
+
+    .auth-error {
+        margin-bottom: 16px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #fecaca;
+        background: #fef2f2;
+        color: #991b1b;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}

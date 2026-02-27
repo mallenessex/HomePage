@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Compose Mail</h2>
+    <p>Send to local users now; remote delivery is scaffolded.</p>
+</div>
+
+<div class="card">
+    <form method="POST" action="/mail/compose">
+        <div class="form-group">
+            <label for="recipient">Recipient Username (or remote address)</label>
+            <input id="recipient" name="recipient" type="text" required placeholder="alice or alice@server-id">
+        </div>
+        <div class="form-group">
+            <label for="subject">Subject</label>
+            <input id="subject" name="subject" type="text" required maxlength="140">
+        </div>
+        <div class="form-group">
+            <label for="body">Message</label>
+            <textarea id="body" name="body" rows="10" required></textarea>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-primary" type="submit">Send</button>
+            <a href="/mail" class="btn-outline">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Local users</h3>
+    {% if users and users|length > 0 %}
+    <p class="text-muted">
+        {% for u in users %}
+        @{{ u.username }}{% if not loop.last %}, {% endif %}
+        {% endfor %}
+    </p>
+    {% else %}
+    <p class="text-muted">No other local users.</p>
+    {% endif %}
+</div>
+{% endblock %}

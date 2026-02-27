@@ -1,0 +1,872 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="games-gallery">
+    <div class="gallery-header">
+        <h2>🎮 Local Games</h2>
+        <p>Challenge your family and friends to locally-hosted, algorithm-free fun.</p>
+    </div>
+
+    <div class="games-grid">
+        <!-- Scorched Earth -->
+        <button type="button" class="game-card create-lobby-card" data-game-type="Scorched Earth">
+            <div class="game-preview" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
+                <div class="game-logo">🚀</div>
+                <div class="terrain-line"></div>
+            </div>
+            <div class="game-details">
+                <div class="game-type">Tactical Artillery</div>
+                <h3>Scorched Earth</h3>
+                <p>Tank battles straight out of the year 2000</p>
+                <div class="game-tags">
+                    <span class="game-tag-chip">Mode: Multiplayer</span>
+                    <span class="game-tag-chip">Genre: Tactical Artillery</span>
+                </div>
+                <div class="game-meta">
+                    <span>👥 up to 8 Players</span>
+                    <span class="active-badge"
+                        style="background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px;">Create
+                        Lobby</span>
+                </div>
+            </div>
+        </button>
+
+        <!-- 2048 -->
+        <button type="button" class="game-card create-lobby-card" data-game-type="2048">
+            <div class="game-preview" style="background: #edc22e;">
+                <div class="game-logo" style="color: #fff; text-shadow: 0 4px 10px rgba(0,0,0,0.2);">2048</div>
+            </div>
+            <div class="game-details">
+                <div class="game-type">Puzzle</div>
+                <h3>2048</h3>
+                <p>Join the numbers to get to the 2048 tile! A simple but addictive mathematical challenge.</p>
+                <div class="game-tags">
+                    <span class="game-tag-chip">Mode: Single Player</span>
+                    <span class="game-tag-chip">Genre: Puzzle</span>
+                </div>
+                <div class="game-meta">
+                    <span>👥 Solo</span>
+                    <span class="active-badge"
+                        style="background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px;">Create
+                        Lobby</span>
+                </div>
+            </div>
+        </button>
+
+        <!-- Tetris -->
+        <button type="button" class="game-card create-lobby-card" data-game-type="Tetris">
+            <div class="game-preview"
+                style="background: linear-gradient(135deg, #111827, #1f2937); display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 3rem;">🧱</span>
+            </div>
+            <div class="game-details">
+                <div class="game-type">Puzzle</div>
+                <h3>Tetris</h3>
+                <p>Stack and clear lines in this classic falling-block challenge.</p>
+                <div class="game-tags">
+                    <span class="game-tag-chip">Mode: Single Player</span>
+                    <span class="game-tag-chip">Genre: Puzzle</span>
+                </div>
+                <div class="game-meta">
+                    <span>👥 Solo</span>
+                    <span class="active-badge"
+                        style="background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px;">Create
+                        Lobby</span>
+                </div>
+            </div>
+        </button>
+
+        <!-- Family Crossword -->
+        <a class="game-card" href="/games/crossword">
+            <div class="game-preview"
+                style="background: #f1f5f9; display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 3rem;">🧩</span>
+            </div>
+            <div class="game-details">
+                <div class="game-type">Puzzle</div>
+                <h3>Family Crossword</h3>
+                <p>Collaboratively solve a daily crossword puzzle with everyone on the node.</p>
+                <div class="game-tags">
+                    <span class="game-tag-chip">Mode: Multiplayer</span>
+                    <span class="game-tag-chip">Genre: Word Puzzle</span>
+                </div>
+                <div class="game-meta">
+                    <span>🗓 Daily</span>
+                    <span class="active-badge"
+                        style="background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px;">Open
+                        Puzzle</span>
+                </div>
+            </div>
+        </a>
+
+        <button type="button" class="game-card create-lobby-card" data-game-type="Civic Chess">
+            <div class="game-preview"
+                style="background: #1e293b; display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 3rem;">♟️</span>
+            </div>
+            <div class="game-details">
+                <div class="game-type">Board Game</div>
+                <h3>Civic Chess</h3>
+                <p>Slow-turn chess. Play moves over days against neighbors across the network.</p>
+                <div class="game-tags">
+                    <span class="game-tag-chip">Mode: Multiplayer</span>
+                    <span class="game-tag-chip">Genre: Board Strategy</span>
+                </div>
+                <div class="game-meta">
+                    <span class="active-badge"
+                        style="background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px;">Create
+                        Lobby</span>
+                </div>
+            </div>
+        </button>
+        <!-- Boutiqe Game Servers Section -->
+        <div class="server-lobby-section card">
+            <div class="lobby-header">
+                <div class="lobby-title">
+                    <h3>📡 Boutique Game Servers</h3>
+                    <p>Jump into privately hosted matches across the neighborhood.</p>
+                </div>
+                <div class="lobby-actions">
+                    <button class="btn-outline-mini" id="open-add-lobby-btn">+ Add a Lobby</button>
+                    <button class="btn-outline-mini" onclick="window.location.reload()">Refresh</button>
+                </div>
+            </div>
+
+            <div class="server-list">
+                {% if lobbies %}
+                {% for lobby in lobbies %}
+                <div class="server-item" id="lobby-row-{{ lobby.id }}" data-lobby-id="{{ lobby.id }}">
+                    <div class="server-status {{ 'online' if lobby.status == 'online' else 'offline' }}"></div>
+                    <div class="server-info">
+                        <span class="server-name">{{ lobby.server_name }} [{{ lobby.game_type }}]</span>
+                        <span class="server-host">Hosted by <b>{{ lobby.host_username }}</b></span>
+                        <span class="server-state">
+                            {% if lobby.status == 'online' %}
+                            Live
+                            {% else %}
+                            Waiting for host launch
+                            {% endif %}
+                        </span>
+                        <div class="server-tags">
+                            <span class="game-tag-chip">Mode: {{ (lobby.play_mode or 'multiplayer') | replace('_', ' ') | title }}</span>
+                            <span class="game-tag-chip">Genre: {{ (lobby.genre or 'general') | replace('_', ' ') | title }}</span>
+                        </div>
+                    </div>
+                    <div class="server-meta">
+                        <span class="player-count">{{ lobby.player_count }} / {{ lobby.max_players }} Players</span>
+                        {% set can_close_lobby = user and (lobby.user_id == user.id or user.role == 'admin' or user.is_admin) %}
+                        <div class="server-actions">
+                            {% if user and lobby.user_id == user.id and lobby.status != 'online' %}
+                            <form action="/games/lobby/{{ lobby.id }}/launch" method="POST" style="margin:0;">
+                                <button type="submit" class="btn-launch-mini">Launch Game</button>
+                            </form>
+                            {% elif lobby.status == 'online' and lobby.join_url %}
+                            <a href="/games/lobby/{{ lobby.id }}/join" class="btn-join-mini">Join Battle</a>
+                            {% elif lobby.status == 'online' %}
+                            <button class="btn-join-mini" disabled style="opacity: 0.5;">No Link</button>
+                            {% else %}
+                            <button class="btn-join-mini" disabled style="opacity: 0.5;">Not Launched</button>
+                            {% endif %}
+
+                            {% if can_close_lobby %}
+                            <form action="/games/lobby/{{ lobby.id }}/close" method="POST" style="margin:0;"
+                                onsubmit="return confirm('Close this lobby? Players will no longer be able to join.');">
+                                <button type="submit" class="btn-close-mini">Close Lobby</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="no-lobbies">
+                    <div class="no-lobbies-icon">📡</div>
+                    <h4>No Active Lobbies</h4>
+                    <p>Be the first to host a game for the neighborhood!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Lobby Modal -->
+    <div id="add-lobby-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card card">
+            <div class="modal-header">
+                <h3>Host a Neighborhood Game</h3>
+                <button onclick="document.getElementById('add-lobby-modal').style.display='none'"
+                    class="close-btn">&times;</button>
+            </div>
+            <form action="/games/lobby/add" method="POST" class="lobby-form">
+                <div class="form-group">
+                    <label>Server Name</label>
+                    <input type="text" name="server_name" placeholder="e.g. Grandma's Fast Scorch" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Game Type</label>
+                        <select name="game_type">
+                            <option value="Scorched Earth">Scorched Earth</option>
+                            <option value="Civic Chess">Civic Chess</option>
+                            <option value="2048">2048</option>
+                            <option value="Tetris">Tetris</option>
+                            <option value="Family Crossword">Family Crossword</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Max Players</label>
+                        <input type="number" name="max_players" value="8" min="1" max="32">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Play Mode</label>
+                        <select name="play_mode">
+                            {% for option in play_mode_options %}
+                            <option value="{{ option.value }}" {{ 'selected' if option.value == 'multiplayer' else '' }}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Genre</label>
+                        <select name="genre">
+                            {% for option in genre_options %}
+                            <option value="{{ option.value }}">{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Join URL (Optional)</label>
+                    <input type="text" name="join_url" placeholder="e.g. /games/scorch or an IP">
+                    <small>Leave blank to use a default route when possible.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-outline"
+                        onclick="document.getElementById('add-lobby-modal').style.display='none'">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Lobby</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            const modal = document.getElementById("add-lobby-modal");
+            if (!modal) return;
+
+            const openAddLobbyBtn = document.getElementById("open-add-lobby-btn");
+            const gameCards = document.querySelectorAll(".create-lobby-card");
+            const serverNameInput = modal.querySelector('input[name="server_name"]');
+            const gameTypeSelect = modal.querySelector('select[name="game_type"]');
+            const playModeSelect = modal.querySelector('select[name="play_mode"]');
+            const genreSelect = modal.querySelector('select[name="genre"]');
+            const maxPlayersInput = modal.querySelector('input[name="max_players"]');
+            const joinUrlInput = modal.querySelector('input[name="join_url"]');
+            if (!serverNameInput || !gameTypeSelect || !playModeSelect || !genreSelect || !maxPlayersInput || !joinUrlInput) return;
+
+            const currentUsername = {{ (user.username if user else "")|tojson }};
+            const isAuthenticated = {{ "true" if user else "false" }};
+            const loginRedirect = "/login?next=/games";
+
+            const defaults = {
+                "scorched earth": { mode: "multiplayer", genre: "tactical_artillery", joinUrl: "/games/scorch", players: 8 },
+                "civic chess": { mode: "multiplayer", genre: "board_strategy", joinUrl: "/games/chess", players: 2 },
+                "2048": { mode: "single_player", genre: "puzzle", joinUrl: "/games/2048", players: 1 },
+                "tetris": { mode: "single_player", genre: "puzzle", joinUrl: "/games/tetris", players: 1 },
+                "family crossword": { mode: "multiplayer", genre: "word_puzzle", joinUrl: "/games/crossword", players: 12 },
+                "other": { mode: "multiplayer", genre: "general", joinUrl: "", players: 8 }
+            };
+
+            const applyDefaults = () => {
+                const key = (gameTypeSelect.value || "").trim().toLowerCase();
+                const match = defaults[key] || defaults.other;
+                playModeSelect.value = match.mode;
+                genreSelect.value = match.genre;
+                maxPlayersInput.value = String(match.players || 8);
+                if (!joinUrlInput.dataset.userEdited) {
+                    joinUrlInput.value = match.joinUrl;
+                }
+            };
+
+            const openLobbyModal = (gameType = null) => {
+                if (!isAuthenticated) {
+                    window.location.href = loginRedirect;
+                    return;
+                }
+
+                if (gameType) {
+                    gameTypeSelect.value = gameType;
+                    const sanitized = gameType.replace(/[^\w\s-]/g, "").trim() || "Game";
+                    if (!serverNameInput.dataset.userEdited) {
+                        if (currentUsername) {
+                            serverNameInput.value = `${currentUsername}'s ${sanitized} Lobby`;
+                        } else {
+                            serverNameInput.value = `${sanitized} Lobby`;
+                        }
+                    }
+                    joinUrlInput.dataset.userEdited = "";
+                }
+
+                applyDefaults();
+                modal.style.display = "flex";
+            };
+
+            openAddLobbyBtn?.addEventListener("click", () => openLobbyModal());
+            gameCards.forEach((card) => {
+                card.addEventListener("click", () => {
+                    openLobbyModal(card.dataset.gameType || null);
+                });
+            });
+
+            serverNameInput.addEventListener("input", () => {
+                serverNameInput.dataset.userEdited = "1";
+            });
+
+            joinUrlInput.addEventListener("input", () => {
+                joinUrlInput.dataset.userEdited = "1";
+            });
+
+            gameTypeSelect.addEventListener("change", applyDefaults);
+            applyDefaults();
+
+            const showCreatedToast = (message) => {
+                const toast = document.createElement("div");
+                toast.className = "games-toast";
+                toast.textContent = message;
+                document.body.appendChild(toast);
+                requestAnimationFrame(() => toast.classList.add("show"));
+                window.setTimeout(() => {
+                    toast.classList.remove("show");
+                    window.setTimeout(() => toast.remove(), 220);
+                }, 3000);
+            };
+
+            const params = new URLSearchParams(window.location.search);
+            const createdLobbyId = params.get("created_lobby_id");
+            if (createdLobbyId) {
+                const target = document.querySelector(`.server-item[data-lobby-id="${createdLobbyId}"]`);
+                if (target) {
+                    target.classList.add("newly-created");
+                    target.scrollIntoView({ behavior: "smooth", block: "center" });
+                    window.setTimeout(() => target.classList.remove("newly-created"), 2600);
+                }
+                showCreatedToast("Lobby created. Launch when ready.");
+
+                const cleanUrl = new URL(window.location.href);
+                cleanUrl.searchParams.delete("created_lobby_id");
+                const cleaned = `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`;
+                window.history.replaceState({}, "", cleaned);
+            }
+        })();
+    </script>
+
+    <style>
+        .games-gallery {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            padding-bottom: 60px;
+        }
+
+        .gallery-header h2 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 900;
+        }
+
+        .gallery-header p {
+            margin: 10px 0 0;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 30px;
+        }
+
+        .game-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow);
+        }
+
+        button.game-card {
+            width: 100%;
+            padding: 0;
+            text-align: left;
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .game-card:not(.locked):hover {
+            transform: translateY(-8px);
+            border-color: var(--primary);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .game-preview {
+            height: 200px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .game-logo {
+            font-size: 4rem;
+            z-index: 2;
+        }
+
+        .terrain-line {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60px;
+            background: #2d5a27;
+            clip-path: polygon(0 100%, 0 45%, 15% 70%, 33% 30%, 55% 80%, 78% 40%, 100% 60%, 100% 100%);
+        }
+
+        .game-details {
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .game-type {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--primary);
+            letter-spacing: 0.05em;
+        }
+
+        .game-details h3 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+
+        .game-details p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            flex: 1;
+        }
+
+        .game-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 2px;
+        }
+
+        .game-tag-chip {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--primary);
+            background: rgba(79, 70, 229, 0.1);
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            border-radius: 999px;
+            padding: 4px 10px;
+            line-height: 1.1;
+            white-space: nowrap;
+        }
+
+        .game-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-top: 10px;
+        }
+
+        .locked-badge {
+            background: var(--bg);
+            padding: 4px 12px;
+            border-radius: 20px;
+            color: #94a3b8;
+        }
+
+        .game-card.locked {
+            opacity: 0.7;
+            cursor: default;
+        }
+
+        /* Server Lobby */
+        .server-lobby-section {
+            padding: 30px !important;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 24px;
+        }
+
+        .lobby-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+        }
+
+        .lobby-title h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 800;
+        }
+
+        .lobby-title p {
+            margin: 5px 0 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .server-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .server-item {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 15px 20px;
+            background: var(--bg);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+
+        .server-item:hover {
+            border-color: var(--primary);
+            transform: translateX(5px);
+        }
+
+        .server-item.newly-created {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+            animation: lobbyPulse 1.4s ease-out 1;
+        }
+
+        @keyframes lobbyPulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.35);
+            }
+
+            100% {
+                box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+            }
+        }
+
+        .games-toast {
+            position: fixed;
+            right: 22px;
+            bottom: 22px;
+            z-index: 1100;
+            background: #111827;
+            color: #f9fafb;
+            border: 1px solid rgba(34, 197, 94, 0.65);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .games-toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .server-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #94a3b8;
+        }
+
+        .server-status.online {
+            background: #10b981;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+        }
+
+        .server-item.offline {
+            opacity: 0.6;
+        }
+
+        .server-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .server-name {
+            font-weight: 800;
+            font-size: 1rem;
+            color: var(--text);
+        }
+
+        .server-host {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .server-state {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 2px;
+        }
+
+        .server-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .server-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .player-count {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .server-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .server-tag {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: var(--primary);
+            background: rgba(79, 70, 229, 0.1);
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+
+        .btn-join-mini {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .btn-launch-mini {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .btn-close-mini {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .btn-outline-mini {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        /* Retro Compatibility */
+        body.theme-retro .server-lobby-section,
+        body.theme-retro .server-item {
+            border-radius: 0;
+            border: 2px solid #808080;
+            border-top-color: #fff;
+            border-left-color: #fff;
+            background: #c0c0c0;
+        }
+
+        body.theme-retro .server-status.online {
+            background: #0f0;
+            box-shadow: none;
+            border: 1px solid #000;
+        }
+
+        body.theme-retro .btn-join-mini {
+            border-radius: 0;
+            background: #c0c0c0;
+            color: #000;
+            border: 2px solid #fff;
+            border-right-color: #000;
+            border-bottom-color: #000;
+        }
+
+        body.theme-retro .game-card {
+            border-radius: 0;
+            border: 2px solid #fff;
+            border-right-color: #808080;
+            border-bottom-color: #808080;
+            box-shadow: none;
+        }
+
+        body.theme-retro .game-type {
+            color: #000080;
+        }
+
+        /* Lobby New Styles */
+        .lobby-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .no-lobbies {
+            padding: 40px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.02);
+            border: 2px dashed var(--border);
+            border-radius: 20px;
+        }
+
+        .no-lobbies-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .no-lobbies h4 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        .no-lobbies p {
+            color: var(--text-muted);
+            margin: 5px 0 0;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-card {
+            width: 500px;
+            max-width: 90%;
+            padding: 30px !important;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .lobby-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-group select {
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: inherit;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+            margin-top: 20px;
+        }
+    </style>
+    {% endblock %}

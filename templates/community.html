@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="community-header">
+    <h2>Community & Discovery</h2>
+    <p>Find and follow other users across the federated internet.</p>
+</div>
+
+<div class="search-section card">
+    <h3>Follow Remote User</h3>
+    <p>Enter a handle like <code>user@domain.com</code></p>
+
+    <form hx-post="/community/follow" hx-target="#follow-result" hx-swap="innerHTML">
+        <div class="input-group">
+            <input type="text" name="handle" placeholder="e.g. mike@mycoolserver.com" required>
+            <button type="submit" class="btn-primary">Follow</button>
+        </div>
+    </form>
+    <div id="follow-result" style="margin-top: 15px;"></div>
+</div>
+
+<div class="discovery-grid">
+    <div class="card">
+        <h3>Local Users</h3>
+        <ul class="user-list">
+            {% for user in local_users %}
+            <li>
+                <strong>{{ user.display_name or user.username }}</strong>
+                <span class="handle">@{{ user.username }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>Network Info</h3>
+        <p>This node is connected to the ActivityPub network.</p>
+        <p>Your handle: <code>{{ user.username if user else 'testuser' }}@{{ node_name }}</code></p>
+    </div>
+</div>
+
+{% endblock %}

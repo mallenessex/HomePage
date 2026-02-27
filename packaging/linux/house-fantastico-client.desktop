@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=House Fantastico Client
+Comment=Contained client for House Fantastico server
+Exec=$HOME/.local/bin/HOMEPAGEClient-linux
+Icon=$HOME/.local/share/icons/hicolor/scalable/apps/house-fantastico-client.svg
+Terminal=false
+Categories=Network;Education;
+StartupNotify=true

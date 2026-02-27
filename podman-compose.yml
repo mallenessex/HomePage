@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Containerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*
+    network_mode: host
+    volumes:
+      - ./app:/app/app
+      - ./media:/app/media
+      - ./local.db:/app/local.db
+      - ./.env:/app/.env
+      - ./data:/app/data
+      - ./dist:/app/dist
+      - "./external data/wikipedia:/app/external_data/wikipedia:ro"
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////app/local.db
+      - PROTOCOL=https
+      - DOMAIN=${APP_DOMAIN:-localhost}
+      - APP_HTTP_PORT=${APP_HTTP_PORT:-8001}
+      - APP_HTTPS_PORT=${APP_HTTPS_PORT:-8443}
+      - HF_HOST_OS=${HF_HOST_OS:-}
+      - WIKI_DATA_DIR=/app/external_data/wikipedia
+      - WIKI_BZ2_PATH=/app/external_data/wikipedia/enwiki-20260101-pages-articles-multistream.xml.bz2
+      - WIKI_DB_PATH=/app/external_data/wikipedia/wikipedia.db
+    depends_on:
+      - coturn
+
+  caddy:
+    image: caddy:2.8-alpine
+    network_mode: host
+    environment:
+      - APP_DOMAIN=${APP_DOMAIN:-localhost}
+      - APP_LAN_IP=${APP_LAN_IP:-127.0.0.1}
+      - APP_HTTPS_PORT=${APP_HTTPS_PORT:-8443}
+      - APP_HTTP_PORT=${APP_HTTP_PORT:-8001}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy-data:/data
+      - ./data/caddy-config:/config
+    depends_on:
+      - web
+
+  coturn:
+    image: coturn/coturn:4.6.3
+    network_mode: host
+    command:
+      - -n
+      - --fingerprint
+      - --realm=local.voice
+      - --lt-cred-mech
+      - --user=voice:voice_local_dev
+      - --listening-port=3478
+      - --min-port=49160
+      - --max-port=49200
+      - --no-cli
+      - --no-tls
+      - --no-dtls

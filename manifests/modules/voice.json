@@ -1,0 +1,23 @@
+{
+  "name": "voice",
+  "version": "1",
+  "runtime": "podman-compose",
+  "compose_file": "podman-compose.yml",
+  "services": [
+    {
+      "name": "coturn",
+      "required": true
+    }
+  ],
+  "routes": [
+    {
+      "module_path": "/voice/",
+      "upstream": "http://localhost:8001/voice/"
+    }
+  ],
+  "healthcheck": {
+    "url": "http://localhost:8001/voice/",
+    "timeout_seconds": 10
+  },
+  "install_policy": "on_enable"
+}

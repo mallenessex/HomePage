@@ -1,0 +1,793 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>⚙️ Admin Settings</h2>
+    <p>Configure your server's identity, users, and content policies</p>
+</div>
+{% if settings_saved %}
+<div class="card" style="margin-bottom: 18px; border-left: 4px solid #16a34a; background: rgba(22,163,74,0.08);">
+    <strong>Settings saved.</strong>
+    <span class="help-text" style="margin-top: 4px;">Secure Mode changes are persisted. Restart the launcher to apply HTTPS/proxy runtime changes.</span>
+</div>
+{% endif %}
+{% if pending_join_count %}
+<a href="#join-requests-section" style="text-decoration:none;">
+    <div class="card" style="margin-bottom: 18px; border-left: 4px solid #f59e0b; background: rgba(245,158,11,0.08); cursor:pointer; display:flex; align-items:center; gap:12px;">
+        <span style="font-size:1.6rem;">🔔</span>
+        <div>
+            <strong style="color:#b45309;">{{ pending_join_count }} pending join request{{ 's' if pending_join_count != 1 else '' }}</strong>
+            <span class="help-text" style="display:block; margin-top:2px;">Scroll down to the Join Requests section to approve or reject.</span>
+        </div>
+    </div>
+</a>
+{% endif %}
+
+<form action="{{ request.url_for('update_server_settings') }}" method="POST">
+    <!-- Modules Shortcut -->
+    <div style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px;">
+        <a href="/admin/modules" class="btn-outline" style="font-size: 0.9rem;">🧩 Manage Modules</a>
+        <span class="help-text" style="margin: 0;">Enable or disable Community, Games, and Search.</span>
+    </div>
+
+    <!-- Server Identity -->
+    <div class="card" style="margin-bottom: 30px;">
+        <h3>🏠 Server Identity</h3>
+        <p class="help-text">These settings define how your server appears to users and other nodes.</p>
+
+        <div class="form-group">
+            <label for="server_name">Server Name</label>
+            <input type="text" id="server_name" name="server_name" value="{{ server_settings.server_name }}" required>
+            <small class="help-text">The display name for your server (e.g., "Smith Family Network")</small>
+        </div>
+
+        <div class="form-group">
+            <label for="server_description">Server Description</label>
+            <textarea id="server_description" name="server_description"
+                rows="3">{{ server_settings.server_description or '' }}</textarea>
+            <small class="help-text">A brief description of your server and its purpose</small>
+        </div>
+    </div>
+
+    <!-- Content Policy -->
+    <div class="card" style="margin-bottom: 30px;">
+        <h3>🛡️ Content Policy</h3>
+        <p class="help-text">Define tags that will be filtered or flagged in content.</p>
+
+        <div class="form-group">
+            <label for="forbidden_tags">🚫 Forbidden Tags</label>
+            <input type="text" id="forbidden_tags" name="forbidden_tags" value="{{ server_settings.forbidden_tags }}"
+                placeholder="violence, hate, explicit">
+            <small class="help-text">
+                Comma-separated list of forbidden words/tags. Content containing these will be blocked.
+                <br><strong>Example:</strong> violence, hate, explicit, drugs
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="warning_tags">⚠️ Warning Tags</label>
+            <input type="text" id="warning_tags" name="warning_tags" value="{{ server_settings.warning_tags }}"
+                placeholder="politics, news, debate">
+            <small class="help-text">
+                Comma-separated list of warning tags. Content with these will be flagged but not blocked.
+                <br><strong>Example:</strong> politics, news, debate, sports
+            </small>
+        </div>
+
+    </div>
+
+    <!-- External Access + Federation Settings -->
+    <div class="card" style="margin-bottom: 30px;">
+        <h3>🌐 Network &amp; Federation</h3>
+
+        <!-- External URL — most important, so it's first -->
+        <div style="border: 2px solid #6366f1; border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; background: rgba(99,102,241,0.03);">
+            <h4 style="margin: 0 0 6px; color: #6366f1;">External / Public Server URL</h4>
+            <div class="form-group" style="margin-bottom: 0;">
+                <input type="text" id="external_server_url" name="external_server_url"
+                    value="{{ server_settings.external_server_url or '' }}"
+                    placeholder="https://myhomepage.duckdns.org:8443"
+                    style="max-width: 480px;">
+                <small class="help-text">
+                    Public URL for remote users (dynamic-DNS + port or static IP). Port-forward on your router.
+                    Leave blank if all users are on the same local network.
+                </small>
+            </div>
+        </div>
+
+        <p class="help-text" style="margin-bottom: 12px;">Controls communication with other HOMEPAGE nodes.</p>
+
+        <label class="checkbox-label">
+            <input type="checkbox" name="federation_enabled" value="true" {% if server_settings.federation_enabled
+                %}checked{% endif %}>
+            Enable Federation (ActivityPub)
+        </label>
+        <small class="help-text">Allow your server to communicate with other federated servers</small>
+
+        <label class="checkbox-label" style="margin-top: 15px;">
+            <input type="checkbox" name="allow_external_follows" value="true" {% if
+                server_settings.allow_external_follows %}checked{% endif %}>
+            Allow External Follows
+        </label>
+        <small class="help-text">Allow users to follow accounts on other servers</small>
+
+        <div class="form-group" style="margin-top: 20px;">
+            <label for="external_join_policy">External Join Approval Policy</label>
+            <select id="external_join_policy" name="external_join_policy" class="role-select">
+                <option value="conditional" {% if server_settings.external_join_policy == 'conditional' %}selected{% endif %}>
+                    Accept Conditionally (admin managed)
+                </option>
+                <option value="none" {% if server_settings.external_join_policy == 'none' %}selected{% endif %}>
+                    Accept None (external connections disabled)
+                </option>
+                <option value="all" {% if server_settings.external_join_policy == 'all' %}selected{% endif %}>
+                    Accept All (WARNING: UNSAFE)
+                </option>
+            </select>
+            <small class="help-text">Controls how remote client join handshakes are handled.</small>
+        </div>
+    </div>
+
+    <!-- Secure Mode -->
+    <div class="card" style="margin-bottom: 30px;">
+        <h3>🔒 Secure Mode (.local HTTPS)</h3>
+        <p class="help-text">Use HTTP by IP for first run, then move clients to a local HTTPS domain with trusted CA.</p>
+
+        <label class="checkbox-label">
+            <input type="checkbox" name="secure_mode_enabled" value="true" {% if server_settings.secure_mode_enabled %}checked{% endif %}>
+            Enable Secure Mode (force browser traffic to <code>.local</code> HTTPS)
+        </label>
+        <small class="help-text">After enabling, restart with <code>run_server.bat</code> (Administrator) so the proxy/domain updates apply.</small>
+
+        <div class="form-group" style="margin-top: 16px;">
+            <label for="secure_local_domain_raw">Secure Local Domain</label>
+            <input type="text" id="secure_local_domain_raw" name="secure_local_domain_raw"
+                value="{{ server_settings.secure_local_domain or '' }}"
+                placeholder="{{ suggested_secure_local_domain }}">
+            <small class="help-text">Use a name like <code>myhomepage.local</code>. If you omit <code>.local</code>, it is added automatically.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="secure_local_ip">Server LAN IP</label>
+            <input type="text" id="secure_local_ip" name="secure_local_ip"
+                value="{{ server_settings.secure_local_ip or '' }}"
+                placeholder="{{ detected_request_ip or '192.168.x.x' }}">
+            <small class="help-text">Used to generate hosts/profile downloads for client machines.</small>
+        </div>
+
+        {% set _secure_ip = server_settings.secure_local_ip or detected_request_ip %}
+        {% set _secure_domain = server_settings.secure_local_domain or suggested_secure_local_domain %}
+        <details style="margin-top: 16px;">
+            <summary style="cursor: pointer; font-weight: 600; font-size: 0.95rem; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;">
+                Setup Guide &amp; Downloads
+            </summary>
+            <div style="padding: 16px; border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px;">
+            <p class="help-text" style="margin-top: 0;">
+                1) First-run: {% if _secure_ip %}<code>http://{{ _secure_ip }}/</code>{% else %}<span class="text-muted">set LAN IP above</span>{% endif %}
+                &nbsp; 2) Secure: <code>https://{{ _secure_domain }}/</code>
+                &nbsp; 3) Install CA + hosts on client devices.
+            </p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                {% if secure_ca_available %}
+                <a href="/admin/settings/secure-mode/ca" class="btn-outline">Download Local CA</a>
+                {% else %}
+                <span class="text-muted">Local CA not found yet. Start Podman HTTPS stack once, then refresh.</span>
+                {% endif %}
+                <a href="/admin/settings/secure-mode/hosts" class="btn-outline">Download Hosts Profile</a>
+                <a href="/admin/settings/secure-mode/profile" class="btn-outline">Download Client Profile</a>
+            </div>
+
+            <h4 style="margin-top: 20px;">Setup Scripts</h4>
+            <p class="help-text" style="margin-top: 0;">
+                Install the local CA and map <code>{{ _secure_domain }}</code> → <code>{{ _secure_ip or 'your LAN IP' }}</code>.
+            </p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <a href="{{ request.url_for('download_secure_mode_setup_script', target_os='windows') }}" class="btn-outline">
+                    Windows (.ps1)
+                </a>
+                <a href="{{ request.url_for('download_secure_mode_setup_script', target_os='macos') }}" class="btn-outline">
+                    macOS (.command)
+                </a>
+                <a href="{{ request.url_for('download_secure_mode_setup_script', target_os='linux') }}" class="btn-outline">
+                    Linux (.sh)
+                </a>
+            </div>
+
+            <h4 style="margin-top: 20px;">Server Host Checklist</h4>
+            <p class="help-text" style="margin-top: 0;">Detected host OS: <code>{{ host_os }}</code></p>
+            <div class="secure-host-grid">
+                <div class="secure-host-card {% if host_os|lower == 'windows' %}active{% endif %}">
+                    <strong>Windows</strong>
+                    <p class="help-text">Run launcher as Administrator.</p>
+                    <code>run_server.bat</code>
+                </div>
+                <div class="secure-host-card {% if host_os|lower == 'linux' %}active{% endif %}">
+                    <strong>Linux</strong>
+                    <p class="help-text">Run with root privileges.</p>
+                    <code>sudo ./run_server.sh</code>
+                </div>
+                <div class="secure-host-card {% if host_os|lower == 'darwin' %}active{% endif %}">
+                    <strong>macOS</strong>
+                    <p class="help-text">Use elevated privileges if needed.</p>
+                    <code>sudo ./run_server.sh</code>
+                </div>
+            </div>
+            </div>
+        </details>
+    </div>
+
+    <!-- Client Connection Share -->
+    <div class="card" style="margin-bottom: 30px;">
+        <h3>🔗 Share Client Packages</h3>
+        <p class="help-text" style="margin-bottom: 14px;">
+            Download a client for users joining this server. Choose <strong>LAN</strong> (same network) or <strong>Off-Network</strong> (internet).
+        </p>
+
+        <!-- ====== LAN Section ====== -->
+        <div style="border: 2px solid #16a34a; border-radius: 10px; padding: 16px 18px; margin-bottom: 18px;">
+            <h4 style="margin: 0 0 4px; color: #16a34a;">📡 LAN — Same Local Network</h4>
+            <p class="help-text" style="margin-top: 0;">
+                {% if client_lan_server_url %}
+                Connects to <code>{{ client_lan_server_url }}</code>.
+                {% else %}
+                <strong style="color: #b91c1c;">⚠ LAN URL not detected.</strong> Set LAN IP in Secure Mode above.
+                {% endif %}
+            </p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <a href="{{ request.url_for('download_windows_client_package_lan') }}" class="btn-outline">⬇ Windows</a>
+                <a href="{{ request.url_for('download_linux_client_package_lan') }}" class="btn-outline">⬇ Linux</a>
+                <a href="{{ request.url_for('download_macos_client_package_lan') }}" class="btn-outline">⬇ macOS</a>
+                <a href="{{ request.url_for('download_client_seed') }}" class="btn-outline" style="font-size: 0.8rem;">Seed JSON</a>
+                <button type="button" class="btn-outline" style="font-size: 0.8rem;" onclick="copyClientInviteDetails('lan')">Copy Invite</button>
+            </div>
+        </div>
+
+        <!-- ====== Off-Network Section ====== -->
+        <div style="border: 2px solid #6366f1; border-radius: 10px; padding: 16px 18px; margin-bottom: 14px;">
+            <h4 style="margin: 0 0 4px; color: #6366f1;">🌍 Off-Network — Over the Internet</h4>
+            <p class="help-text" style="margin-top: 0;">
+                {% if client_external_server_url %}
+                Connects to <code>{{ client_external_server_url }}</code>.
+                {% else %}
+                <strong style="color: #b91c1c;">⚠ External URL not set.</strong> Configure it in Network &amp; Federation above.
+                {% endif %}
+            </p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                {% if client_external_server_url %}
+                <a href="{{ request.url_for('download_windows_client_package_external') }}" class="btn-outline">⬇ Windows</a>
+                <a href="{{ request.url_for('download_linux_client_package_external') }}" class="btn-outline">⬇ Linux</a>
+                <a href="{{ request.url_for('download_macos_client_package_external') }}" class="btn-outline">⬇ macOS</a>
+                <a href="{{ request.url_for('download_client_seed_external') }}" class="btn-outline" style="font-size: 0.8rem;">Seed JSON</a>
+                <button type="button" class="btn-outline" style="font-size: 0.8rem;" onclick="copyClientInviteDetails('external')">Copy Invite</button>
+                {% else %}
+                <span class="btn-outline" style="opacity: 0.4; cursor: not-allowed;">⬇ Windows</span>
+                <span class="btn-outline" style="opacity: 0.4; cursor: not-allowed;">⬇ Linux</span>
+                <span class="btn-outline" style="opacity: 0.4; cursor: not-allowed;">⬇ macOS</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Advanced / manual -->
+        <details style="margin-top: 8px;">
+            <summary style="cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text-muted);">Advanced: server identity &amp; manual invite</summary>
+            <div style="padding: 10px 0;">
+                <div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: baseline; margin-bottom: 10px;">
+                    <div>
+                        <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">Server ID</span><br>
+                        <code style="font-size: 0.9rem;">{{ local_server_id }}</code>
+                    </div>
+                    <div>
+                        <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">LAN URL</span><br>
+                        <code style="font-size: 0.9rem;">{{ client_lan_server_url or 'N/A' }}</code>
+                    </div>
+                    <div>
+                        <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">External URL</span><br>
+                        <code style="font-size: 0.9rem;">{{ client_external_server_url or 'N/A' }}</code>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <a href="{{ request.url_for('download_client_invite') }}" class="btn-outline" style="font-size: 0.8rem;">Download Invite File</a>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">
+                    <strong>First-run HTTP:</strong> <code>{{ client_first_run_http_url or 'N/A' }}</code><br>
+                    <strong>Secure HTTPS:</strong> <code>{{ client_secure_server_url or 'N/A' }}</code>
+                </div>
+            </div>
+        </details>
+
+        <textarea id="client-invite-payload-lan" style="position:absolute; left:-10000px; top:auto; width:1px; height:1px;" aria-hidden="true">{{ client_invite_text }}</textarea>
+        <textarea id="client-invite-payload-external" style="position:absolute; left:-10000px; top:auto; width:1px; height:1px;" aria-hidden="true">{{ client_invite_text_external }}</textarea>
+    </div>
+
+    {% if chat_module_enabled %}
+    <div class="card" style="margin-bottom: 30px;">
+        <h3>⌨️ Chat Module Settings</h3>
+        <p class="help-text">Chat management moved to a dedicated page for cleaner admin workflow.</p>
+        <a href="/admin/chat-settings" class="btn-primary">Open Chat Settings</a>
+    </div>
+    {% endif %}
+
+    <!-- User Management Section (Merged) -->
+    <div class="card" style="margin-bottom: 30px;">
+        <h3 id="join-requests-section">📨 Join Requests</h3>
+        <p class="help-text">Remote client join requests are blocked by default until approved.</p>
+
+        {% if join_requests and join_requests|length > 0 %}
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>User</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in join_requests %}
+                <tr id="join-request-row-{{ req.id }}">
+                    <td>{{ req.id }}</td>
+                    <td>
+                        <strong>{{ req.requested_display_name or req.requested_username or "Unknown" }}</strong>
+                        {% if req.requested_username %}
+                        <br><span class="handle">@{{ req.requested_username }}</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge">{{ req.status }}</span></td>
+                    <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '—' }}</td>
+                    <td>
+                        {% if req.status == 'pending' %}
+                        <div style="display:flex; gap:8px;">
+                            <button type="submit" class="btn-primary" style="padding:4px 10px; font-size:0.8rem;"
+                                formaction="/admin/join-requests/{{ req.id }}/approve" formmethod="POST" formnovalidate>
+                                Approve
+                            </button>
+                            <button type="submit" class="btn-danger-mini"
+                                formaction="/admin/join-requests/{{ req.id }}/reject" formmethod="POST" formnovalidate>
+                                Reject
+                            </button>
+                            <button type="button" class="btn-danger-mini"
+                                onclick="deleteJoinRequest({{ req.id }}, this);">
+                                Delete
+                            </button>
+                        </div>
+                        {% else %}
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <span class="text-muted">Processed</span>
+                            <button type="button" class="btn-danger-mini"
+                                onclick="deleteJoinRequest({{ req.id }}, this);">
+                                Delete
+                            </button>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No join requests yet.</p>
+        {% endif %}
+    </div>
+
+    <!-- Password Reset Requests -->
+    <div class="card" style="margin-bottom: 30px;">
+        <h3>🔑 Password Reset Requests</h3>
+        <p class="help-text">Users who forgot their password can submit a reset request from the client app. Approve to update their password.</p>
+
+        {% if password_reset_requests and password_reset_requests|length > 0 %}
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Username</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in password_reset_requests %}
+                <tr id="pw-reset-row-{{ req.id }}">
+                    <td>{{ req.id }}</td>
+                    <td><strong>@{{ req.username }}</strong></td>
+                    <td><span class="badge">{{ req.status }}</span></td>
+                    <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '—' }}</td>
+                    <td>
+                        {% if req.status == 'pending' %}
+                        <div style="display:flex; gap:8px;">
+                            <button type="submit" class="btn-primary" style="padding:4px 10px; font-size:0.8rem;"
+                                formaction="/admin/password-reset-requests/{{ req.id }}/approve" formmethod="POST" formnovalidate>
+                                Approve
+                            </button>
+                            <button type="submit" class="btn-danger-mini"
+                                formaction="/admin/password-reset-requests/{{ req.id }}/reject" formmethod="POST" formnovalidate>
+                                Reject
+                            </button>
+                            <button type="button" class="btn-danger-mini"
+                                onclick="deletePasswordResetRequest({{ req.id }}, this);">
+                                Delete
+                            </button>
+                        </div>
+                        {% else %}
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <span class="text-muted">Processed</span>
+                            <button type="button" class="btn-danger-mini"
+                                onclick="deletePasswordResetRequest({{ req.id }}, this);">
+                                Delete
+                            </button>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No password reset requests.</p>
+        {% endif %}
+    </div>
+
+    <!-- User Management Section (Merged) -->
+    <div class="card" style="margin-bottom: 30px;">
+        <h3>🔐 User Role Management</h3>
+        <p class="help-text">Manage user roles and permissions.</p>
+
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>
+                        <div class="user-cell">
+                            <div class="user-avatar-small">
+                                {% if u.avatar_url %}
+                                <img src="{{ u.avatar_url }}" alt="{{ u.username }}">
+                                {% else %}
+                                {{ u.username[0].upper() }}
+                                {% endif %}
+                            </div>
+                            <div>
+                                <strong>{{ u.display_name or u.username }}</strong>
+                                <br><span class="handle">@{{ u.username }}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <select name="role_{{ u.id }}" onchange="updateUserRole({{ u.id }}, this.value)"
+                            class="role-select">
+                            <option value="admin" {% if u.role=='admin' %}selected{% endif %}>Admin</option>
+                            <option value="adult" {% if u.role in ['adult', 'parent'] %}selected{% endif %}>Adult</option>
+                            <option value="child" {% if u.role=='child' %}selected{% endif %}>Child</option>
+                        </select>
+                    </td>
+                    <td>{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        {% if user and u.id == user.id %}
+                        <span class="text-muted">Current User</span>
+                        {% else %}
+                        <button type="submit" class="btn-danger-mini"
+                            formaction="/admin/users/{{ u.id }}/delete"
+                            formmethod="POST"
+                            formnovalidate
+                            onclick="return confirm('Delete user @{{ u.username }}? This permanently removes their account and related data.');">
+                            Delete
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn-primary">💾 Save Server Settings</button>
+        <a href="/admin/dashboard" class="btn-outline">Cancel</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-group {
+        margin-bottom: 25px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: var(--text);
+        font-size: 1.05rem;
+    }
+
+    .form-group input[type="text"],
+    .form-group textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 1rem;
+        font-family: inherit;
+    }
+
+    .form-group textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .help-text {
+        display: block;
+        margin-top: 6px;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        padding: 12px;
+        border-radius: 8px;
+        transition: background 0.2s;
+        font-weight: 500;
+    }
+
+    .checkbox-label:hover {
+        background: var(--card);
+    }
+
+    .checkbox-label input[type="checkbox"] {
+        width: auto;
+        cursor: pointer;
+        transform: scale(1.2);
+    }
+
+    .secure-host-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        margin-top: 10px;
+    }
+
+    .secure-host-card {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        background: var(--card);
+    }
+
+    .secure-host-card.active {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.18);
+    }
+
+    .secure-host-card code {
+        display: inline-block;
+        margin-top: 6px;
+        font-size: 0.82rem;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 30px;
+    }
+
+    .text-muted {
+        color: var(--text-muted);
+        font-style: italic;
+    }
+
+    /* Merged User Table Styles */
+    .users-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+
+    .users-table th {
+        text-align: left;
+        padding: 10px;
+        border-bottom: 2px solid var(--border);
+        color: var(--text-muted);
+    }
+
+    .users-table td {
+        padding: 12px 10px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .user-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .user-avatar-small {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: var(--primary);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        overflow: hidden;
+    }
+
+    .user-avatar-small img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        display: block;
+    }
+
+    .role-select {
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--text);
+    }
+
+    .badge {
+        padding: 4px 8px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .btn-danger-mini {
+        background: transparent;
+        border: 1px solid #dc2626;
+        color: #dc2626;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .btn-danger-mini:hover {
+        background: rgba(220, 38, 38, 0.08);
+    }
+</style>
+
+<script>
+    async function updateUserRole(userId, newRole) {
+        if (!confirm("Are you sure you want to change this user's role to " + newRole + "?")) {
+            // Revert selection if canceled (simple reload easier for now)
+            location.reload();
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('role', newRole);
+
+        try {
+            const response = await fetch(`/admin/users/${userId}/update-role`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                // Flash success or just reload to reflect state
+                window.location.reload();
+            } else {
+                alert("Failed to update role. Please try again.");
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert("An error occurred.");
+        }
+    }
+
+    async function deleteJoinRequest(requestId, buttonEl) {
+        if (!confirm(`Delete join request #${requestId}?`)) {
+            return;
+        }
+
+        try {
+            let response = await fetch(`/admin/join-requests/${requestId}/delete`, {
+                method: 'POST'
+            });
+
+            // Backward compatibility: older running servers may not have /delete yet.
+            if (response.status === 404) {
+                response = await fetch(`/admin/join-requests/${requestId}/reject`, {
+                    method: 'POST'
+                });
+            }
+
+            if (!response.ok) {
+                let detail = "Failed to delete join request.";
+                try {
+                    const body = await response.json();
+                    if (body && body.detail) detail = body.detail;
+                } catch (_) { }
+                alert(detail);
+                return;
+            }
+
+            const row = document.getElementById(`join-request-row-${requestId}`);
+            if (row) {
+                row.remove();
+            }
+        } catch (error) {
+            console.error('Delete join request error:', error);
+            alert("Failed to delete join request.");
+        }
+    }
+
+    async function deletePasswordResetRequest(requestId, buttonEl) {
+        if (!confirm(`Delete password reset request #${requestId}?`)) {
+            return;
+        }
+        try {
+            const response = await fetch(`/admin/password-reset-requests/${requestId}/delete`, {
+                method: 'POST'
+            });
+            if (!response.ok) {
+                let detail = "Failed to delete password reset request.";
+                try {
+                    const body = await response.json();
+                    if (body && body.detail) detail = body.detail;
+                } catch (_) { }
+                alert(detail);
+                return;
+            }
+            const row = document.getElementById(`pw-reset-row-${requestId}`);
+            if (row) { row.remove(); }
+        } catch (error) {
+            console.error('Delete password reset request error:', error);
+            alert("Failed to delete password reset request.");
+        }
+    }
+
+    async function copyClientInviteDetails(mode) {
+        const target = (mode === 'external') ? 'external' : 'lan';
+        const source = document.getElementById(`client-invite-payload-${target}`);
+        if (!source) {
+            alert("Invite details are unavailable.");
+            return;
+        }
+        const text = source.value || source.textContent || "";
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const temp = document.createElement('textarea');
+                temp.value = text;
+                temp.style.position = 'fixed';
+                temp.style.left = '-10000px';
+                document.body.appendChild(temp);
+                temp.focus();
+                temp.select();
+                document.execCommand('copy');
+                temp.remove();
+            }
+            alert(target === 'external' ? "Off-network invite copied." : "LAN invite copied.");
+        } catch (error) {
+            console.error('Copy invite details error:', error);
+            alert("Could not copy invite details automatically.");
+        }
+    }
+
+</script>
+{% endblock %}

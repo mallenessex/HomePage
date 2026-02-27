@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 60px auto; text-align: center;">
+    <div class="card" style="border-left: 4px solid #16a34a; background: rgba(22,163,74,0.04);">
+        <h2 style="color: #16a34a; margin-bottom: 12px;">✅ Join Request #{{ request_id }} Approved</h2>
+
+        {% if client_supplied_password %}
+        <p>The user chose their own password when they submitted the join request. No credentials need to be shared.</p>
+        <div style="background: var(--bg-secondary, #f8f9fa); border-radius: 10px; padding: 20px; margin: 20px 0; text-align: left;">
+            <div>
+                <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">Username</span><br>
+                <code style="font-size: 1.2rem; user-select: all;">{{ allocated_username }}</code>
+            </div>
+        </div>
+        <p class="help-text" style="margin-bottom: 16px;">
+            The user's client will detect approval automatically and open the browser.
+        </p>
+        {% else %}
+        <p>A user account has been created. <strong>Share these credentials with the new user</strong> so they can log in:</p>
+        <div style="background: var(--bg-secondary, #f8f9fa); border-radius: 10px; padding: 20px; margin: 20px 0; text-align: left;">
+            <div style="margin-bottom: 12px;">
+                <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">Username</span><br>
+                <code id="alloc-username" style="font-size: 1.2rem; user-select: all;">{{ allocated_username }}</code>
+            </div>
+            <div>
+                <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">Temporary Password</span><br>
+                <code id="alloc-password" style="font-size: 1.2rem; user-select: all;">{{ allocated_password }}</code>
+            </div>
+        </div>
+        <p class="help-text" style="margin-bottom: 16px;">
+            The user should change their password after first login via Profile Settings.
+        </p>
+        {% endif %}
+
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            {% if not client_supplied_password %}
+            <button type="button" class="btn-primary" onclick="copyCredentials()">📋 Copy Credentials</button>
+            {% endif %}
+            <a href="/admin/settings" class="btn-outline">← Back to Settings</a>
+        </div>
+    </div>
+</div>
+
+{% if not client_supplied_password %}
+<script>
+function copyCredentials() {
+    const u = document.getElementById('alloc-username').textContent.trim();
+    const p = document.getElementById('alloc-password').textContent.trim();
+    const text = 'Your HOMEPAGE account is ready!\n\nUsername: ' + u + '\nTemporary Password: ' + p + '\n\nLog in and change your password in Profile Settings.';
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Credentials copied to clipboard!');
+    }).catch(() => {
+        prompt('Copy these credentials:', text);
+    });
+}
+</script>
+{% endif %}
+{% endblock %}

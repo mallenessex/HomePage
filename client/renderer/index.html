@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';">
+  <title>HOMEPAGE Client</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- ── Header ─────────────────────────────────────── -->
+    <header>
+      <h1>HOMEPAGE Client</h1>
+      <p class="subtitle">Connect to one or more HOMEPAGE servers. Navigation is locked to the active server origin.</p>
+      <p class="client-id" id="clientId">Client ID: —</p>
+    </header>
+
+    <!-- ── Server Selector ────────────────────────────── -->
+    <section class="server-selector">
+      <label class="section-label">Active Server</label>
+      <div class="selector-row">
+        <select id="serverCombo"></select>
+        <button id="btnAddServer" class="btn-sm">Add Server</button>
+        <button id="btnRenameServer" class="btn-sm">Rename</button>
+        <button id="btnRemoveServer" class="btn-sm btn-danger-sm">Remove Server</button>
+      </div>
+    </section>
+
+    <!-- ── Server Fields ──────────────────────────────── -->
+    <section class="server-fields">
+      <div class="field-row">
+        <label>Server URL</label>
+        <input type="text" id="serverUrl" placeholder="https://example.com:8443">
+      </div>
+      <div class="field-row">
+        <label>Target Server ID</label>
+        <input type="text" id="targetServerId" placeholder="hex server ID from admin">
+      </div>
+      <div class="field-row">
+        <label class="muted">Effective URL</label>
+        <span id="effectiveUrl" class="effective-url">—</span>
+      </div>
+    </section>
+
+    <!-- ── Connect Panel ──────────────────────────────── -->
+    <section id="connectPanel" class="panel">
+      <div class="btn-group">
+        <button id="btnConnect" class="btn-primary">Connect</button>
+        <button id="btnSaveConfig" class="btn">Save Config</button>
+      </div>
+      <p class="muted" style="margin-top: 10px; font-size: 12px;">
+        The server handles login and account management. Enter the URL and Server ID, then click Connect.
+      </p>
+    </section>
+
+    <!-- ── Status bar ─────────────────────────────────── -->
+    <footer>
+      <p id="statusBar" class="status-bar"></p>
+    </footer>
+  </div>
+
+  <!-- ── Prompt modal ─────────────────────────────────── -->
+  <div id="promptModal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="promptTitle">Rename</h2>
+      <p id="promptMsg"></p>
+      <input type="text" id="promptInput" style="width:100%; margin-top:8px;">
+      <div class="modal-buttons">
+        <button id="promptOk" class="btn-primary">OK</button>
+        <button id="promptCancel" class="btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Confirm modal ────────────────────────────────── -->
+  <div id="confirmModal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="confirmTitle">Confirm</h2>
+      <p id="confirmMsg"></p>
+      <div class="modal-buttons">
+        <button id="confirmYes" class="btn-primary">Yes</button>
+        <button id="confirmNo" class="btn">No</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Alert modal ──────────────────────────────────── -->
+  <div id="alertModal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2 id="alertTitle">Info</h2>
+      <p id="alertMsg"></p>
+      <div class="modal-buttons">
+        <button id="alertOk" class="btn-primary">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

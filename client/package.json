@@ -1,0 +1,41 @@
+{
+  "name": "homepage-client",
+  "version": "1.0.0",
+  "description": "HOMEPAGE Client — private network app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win portable",
+    "dist:linux": "electron-builder --linux tar.gz"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {},
+  "build": {
+    "appId": "com.homepage.client",
+    "productName": "HOMEPAGE Client",
+    "directories": {
+      "output": "../dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.cache"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": null
+    },
+    "linux": {
+      "target": "tar.gz",
+      "category": "Network",
+      "artifactName": "HomepageClient-linux-x86_64.tar.gz"
+    },
+    "portable": {
+      "artifactName": "HOMEPAGEClient-windows.exe"
+    }
+  }
+}

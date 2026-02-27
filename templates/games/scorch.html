@@ -1,0 +1,804 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="joinScreen" class="scorch-join-screen card {% if user %}hidden{% endif %}">
+    <div class="join-content">
+        <h2 class="scorch-title">SCORCHED EARTH</h2>
+        <p class="scorch-subtitle">&ldquo;The Mother of all Games&rdquo;</p>
+        <div class="join-form">
+            <label class="scorch-label">Enter your callsign, Commander:</label>
+            <input type="text" id="playerNameInput" class="scorch-input" placeholder="Player Name" maxlength="15"
+                value="{{ user.username if user else '' }}">
+            <div class="terrain-select-row">
+                <label class="scorch-label">Terrain:</label>
+                <select id="terrainSelect" class="scorch-select">
+                    <option value="random">Random</option>
+                    <option value="hilly">Hilly</option>
+                    <option value="mountainous">Mountainous</option>
+                    <option value="flat">Flat</option>
+                    <option value="craggy">Craggy</option>
+                </select>
+            </div>
+            <button id="joinBtn" class="scorch-fire-btn">ENTER BATTLE</button>
+        </div>
+    </div>
+</div>
+
+<div id="gameApp" class="scorch-app {% if not user %}hidden{% endif %}">
+    <div class="scorch-hud">
+        <div class="hud-left">
+            <div class="hud-cell"><span class="hud-label">ROUND</span><span id="roundDisplay" class="hud-value">1/10</span></div>
+            <div class="hud-cell">
+                <span class="hud-label">WIND</span>
+                <span id="windDisplay" class="hud-value wind-display">
+                    <span id="windArrow" class="wind-arrow">&bull;</span>
+                    <span id="windValue">0.0</span>
+                </span>
+            </div>
+        </div>
+        <div id="statusList" class="player-status-bar"></div>
+        <div class="hud-right">
+            <button id="shopToggle" class="hud-btn">ARMORY</button>
+        </div>
+    </div>
+
+    <div class="battle-container">
+        <canvas id="scorchCanvas" width="1200" height="1200"></canvas>
+        <div id="statusOverlay" class="status-overlay"></div>
+        <div id="roundOverlay" class="round-overlay hidden">
+            <div class="round-content">
+                <h2 id="roundTitle">ROUND OVER</h2>
+                <p id="roundMessage"></p>
+                <div id="scoreBoard" class="score-board"></div>
+                <button id="nextRoundBtn" class="scorch-fire-btn">NEXT ROUND</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="shopPanel" class="shop-panel hidden">
+        <div class="shop-header">
+            <h3>ARMORY</h3>
+            <span id="shopCash" class="shop-cash">$0</span>
+            <button id="shopClose" class="shop-close">&times;</button>
+        </div>
+        <div class="shop-sections">
+            <div class="shop-section"><h4>WEAPONS</h4><div id="weaponShop" class="shop-grid"></div></div>
+            <div class="shop-section"><h4>DEFENSES &amp; ITEMS</h4><div id="itemShop" class="shop-grid"></div></div>
+        </div>
+    </div>
+
+    <div class="command-bar">
+        <div class="cmd-section weapon-section">
+            <label class="cmd-label">WEAPON</label>
+            <select id="weaponSelect" class="cmd-select"></select>
+        </div>
+        <div class="cmd-section">
+            <label class="cmd-label">ANGLE</label>
+            <input type="range" id="angleSlider" min="0" max="180" value="45" class="cmd-slider">
+            <span id="angleVal" class="cmd-value">45&deg;</span>
+        </div>
+        <div class="cmd-section">
+            <label class="cmd-label">POWER</label>
+            <input type="range" id="powerSlider" min="5" max="240" value="70" class="cmd-slider">
+            <span id="powerVal" class="cmd-value">70</span>
+        </div>
+        <button id="fireBtn" class="fire-button" disabled>FIRE!</button>
+    </div>
+</div>
+
+<style>
+:root{--se-bg:#000010;--se-hud:#1a1a2e;--se-panel:#0d0d1a;--se-border:#333366;--se-text:#ccc;--se-hi:#ffcc00;--se-green:#00ff00;--se-red:#ff4444}
+.hidden{display:none!important}
+.scorch-join-screen{background:var(--se-bg);border:2px solid var(--se-border);max-width:480px;margin:80px auto;padding:40px;text-align:center;font-family:monospace}
+.scorch-title{font-size:36px;color:var(--se-hi);text-shadow:2px 2px 0 #f60,0 0 20px rgba(255,204,0,.5);margin:0 0 4px}
+.scorch-subtitle{font-size:14px;color:#f60;margin:0 0 30px}
+.scorch-label{color:var(--se-text);font-size:13px;display:block;margin-bottom:6px}
+.scorch-input,.scorch-select{background:#0a0a1a;border:1px solid var(--se-border);color:var(--se-green);font-family:monospace;font-size:16px;padding:10px 14px;width:100%;box-sizing:border-box;margin-bottom:12px}
+.scorch-input:focus,.scorch-select:focus{outline:none;border-color:var(--se-hi)}
+.terrain-select-row{margin-bottom:12px}
+.scorch-fire-btn{background:linear-gradient(180deg,#c40,#910);color:#fff;border:2px solid #f60;font-family:monospace;font-size:18px;padding:12px 40px;cursor:pointer;text-shadow:1px 1px 0 #000;letter-spacing:2px}
+.scorch-fire-btn:hover{background:linear-gradient(180deg,#f50,#c20)}
+.scorch-app{background:var(--se-bg);max-width:1240px;margin:10px auto;border:2px solid var(--se-border);position:relative}
+.scorch-hud{display:flex;align-items:center;background:var(--se-hud);border-bottom:1px solid var(--se-border);padding:4px 10px;gap:10px;flex-wrap:wrap}
+.hud-left{display:flex;gap:16px;align-items:center}
+.hud-cell{display:flex;align-items:center;gap:6px}
+.hud-label{font-family:monospace;font-size:11px;color:#888;text-transform:uppercase}
+.hud-value{font-family:monospace;font-size:14px;color:var(--se-hi);font-weight:bold}
+.wind-display{min-width:70px;text-align:center}
+.wind-arrow{display:inline-block;transition:transform .3s}
+.player-status-bar{display:flex;flex:1;gap:8px;flex-wrap:wrap;justify-content:center}
+.player-badge{display:flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid rgba(255,255,255,.15);border-radius:3px;font-family:monospace;font-size:11px}
+.player-badge.dead{opacity:.35;text-decoration:line-through}
+.player-badge.active{border-color:var(--se-hi);background:rgba(255,204,0,.1)}
+.badge-color{width:8px;height:8px;border-radius:50%;display:inline-block}
+.badge-hp{color:var(--se-green)}.badge-cash{color:var(--se-hi);font-size:10px}
+.hud-right{display:flex;gap:8px}
+.hud-btn{background:#2a2a4a;border:1px solid var(--se-border);color:var(--se-text);font-family:monospace;font-size:12px;padding:4px 12px;cursor:pointer}
+.hud-btn:hover{background:#3a3a5a;border-color:var(--se-hi)}
+.battle-container{position:relative;width:1200px;max-width:100%;margin:0 auto;background:#000;overflow:hidden}
+#scorchCanvas{display:block;width:100%;height:auto}
+.status-overlay{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-family:monospace;font-size:13px;color:#fff;text-shadow:1px 1px 2px #000;text-align:center;pointer-events:none;max-width:600px;transition:opacity .5s;white-space:pre-line}
+.round-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,16,.92);display:flex;align-items:center;justify-content:center;z-index:10}
+.round-content{text-align:center;color:var(--se-text);font-family:monospace}
+.round-content h2{font-size:28px;color:var(--se-hi);margin-bottom:10px}
+.round-content p{font-size:16px;margin-bottom:20px}
+.score-board{margin:15px auto;font-size:13px;max-width:300px}
+.score-row{display:flex;justify-content:space-between;padding:4px 10px}
+.score-name{color:#aaa}.score-pts{color:var(--se-hi)}
+.shop-panel{position:absolute;top:40px;right:10px;width:360px;max-height:80vh;overflow-y:auto;background:rgba(13,13,26,.97);border:2px solid var(--se-border);z-index:20;font-family:monospace}
+.shop-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--se-border);background:var(--se-hud)}
+.shop-header h3{color:var(--se-hi);font-size:14px;margin:0}
+.shop-cash{color:var(--se-green);font-size:14px}
+.shop-close{background:none;border:none;color:#888;font-size:18px;cursor:pointer}
+.shop-section h4{font-size:12px;color:#888;padding:6px 12px 2px;margin:0;border-bottom:1px solid #222}
+.shop-grid{display:grid;gap:1px}
+.shop-item{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;border-bottom:1px solid #1a1a2e;cursor:pointer}
+.shop-item:hover{background:rgba(255,204,0,.08)}
+.shop-item-name{color:var(--se-text);font-size:12px;flex:1}
+.shop-item-price{color:var(--se-hi);font-size:11px;margin:0 8px}
+.shop-item-owned{color:var(--se-green);font-size:11px;min-width:30px;text-align:right}
+.shop-item-buy{background:#2a2a4a;border:1px solid var(--se-border);color:var(--se-text);font-family:monospace;font-size:11px;padding:2px 8px;cursor:pointer;margin-left:6px}
+.shop-item-buy:hover{background:#3a3a5a;border-color:var(--se-hi)}
+.command-bar{display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(--se-hud);border-top:1px solid var(--se-border);flex-wrap:wrap}
+.cmd-section{display:flex;align-items:center;gap:6px}
+.weapon-section{flex:0 0 auto}
+.cmd-label{font-family:monospace;font-size:11px;color:#888;text-transform:uppercase;white-space:nowrap}
+.cmd-select{background:#0a0a1a;border:1px solid var(--se-border);color:var(--se-green);font-family:monospace;font-size:12px;padding:4px 8px;max-width:180px}
+.cmd-slider{width:120px;accent-color:var(--se-hi)}
+.cmd-value{font-family:monospace;font-size:13px;color:var(--se-hi);min-width:36px;text-align:right}
+.fire-button{background:linear-gradient(180deg,#c20,#800);color:#fff;border:2px solid #f40;font-family:monospace;font-size:16px;padding:8px 28px;cursor:pointer;letter-spacing:2px;text-shadow:1px 1px 0 #000;margin-left:auto}
+.fire-button:hover:not(:disabled){background:linear-gradient(180deg,#f30,#a00)}
+.fire-button:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:900px){.scorch-app{max-width:100%}.battle-container{width:100%}.command-bar{gap:8px}.cmd-slider{width:80px}.shop-panel{width:280px}}
+</style>
+
+<script>
+(function(){
+"use strict";
+
+var canvas = document.getElementById("scorchCanvas");
+var ctx = canvas.getContext("2d");
+var W = canvas.width, H = canvas.height;
+
+// ── State ──
+var ws = null, myPlayerId = null;
+var terrain = [], players = [], currentTurn = 0, wind = 0;
+var weapons = {}, items = {}, physics = {};
+var roundNumber = 1, maxRounds = 10;
+
+// ── Animation ──
+var projectiles = [], explosions = [], particles = [];
+var animating = false, gameLoopId = null;
+
+// ── Stars (pre-gen) ──
+var stars = [];
+for (var si = 0; si < 300; si++) {
+    stars.push({x: Math.random()*W, y: Math.random()*(H-300), b: .3+Math.random()*.7, s: Math.random()<.1?2:1});
+}
+
+// ═══════════ CONNECT ═══════════
+function connect() {
+    var proto = location.protocol === "https:" ? "wss:" : "ws:";
+    ws = new WebSocket(proto + "//" + location.host + "/games/scorch/ws");
+    ws.onmessage = function(e) { handleMessage(JSON.parse(e.data)); };
+    ws.onclose = function() { setTimeout(connect, 2000); };
+}
+
+function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+function handleMessage(msg) {
+    switch (msg.type) {
+    case "game_state":
+        terrain = msg.terrain; players = msg.players;
+        currentTurn = msg.turn; wind = msg.wind;
+        weapons = msg.weapons; items = msg.items || {};
+        physics = msg.physics;
+        roundNumber = msg.round_number || 1;
+        maxRounds = msg.max_rounds || 10;
+        updateUI(); render();
+        break;
+    case "joined_ack":
+        myPlayerId = msg.player_id;
+        document.getElementById("joinScreen").classList.add("hidden");
+        document.getElementById("gameApp").classList.remove("hidden");
+        break;
+    case "fire":
+        handleFireEvent(msg);
+        break;
+    case "terrain_update":
+        terrain = msg.terrain; players = msg.players;
+        updateUI();
+        if (msg.status && msg.status.length) showStatus(msg.status.join("\n"));
+        if (msg.awards) { for (var ai=0;ai<msg.awards.length;ai++) { if(msg.awards[ai].kill) screenShake(6,300); } }
+        if (msg.round_over) showRoundOver(msg.round_winner, msg.round_number);
+        render();
+        break;
+    case "turn_update":
+        currentTurn = msg.turn; wind = msg.wind; players = msg.players;
+        updateUI(); render();
+        break;
+    case "economy_update":
+        players = msg.players; updateUI(); updateShop();
+        break;
+    case "shop_result":
+        showStatus(msg.message);
+        break;
+    case "error":
+        showStatus(msg.message);
+        break;
+    }
+}
+
+function joinGame() {
+    var name = document.getElementById("playerNameInput").value.trim();
+    if (!name) return;
+    send({type:"join", name:name});
+}
+
+// ═══════════ RENDERING ═══════════
+function render() {
+    ctx.clearRect(0, 0, W, H);
+    drawSky(); drawStars(); drawTerrain(); drawTanks();
+    drawProjectiles(); drawExplosions(); drawParticles();
+}
+
+function drawSky() {
+    var g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,"#000010"); g.addColorStop(.15,"#000022");
+    g.addColorStop(.4,"#000044"); g.addColorStop(.7,"#000066");
+    g.addColorStop(1,"#001133");
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+}
+
+function drawStars() {
+    for (var i=0;i<stars.length;i++) {
+        var st = stars[i];
+        if (terrain.length && st.y < H - terrain[Math.floor(st.x)]) {
+            ctx.fillStyle = "rgba(255,255,255," + (st.b*.5) + ")";
+            ctx.fillRect(st.x, st.y, st.s, st.s);
+        }
+    }
+}
+
+function terrainScreenY(x) {
+    var idx = Math.floor(Math.max(0, Math.min(terrain.length-1, x)));
+    return H - terrain[idx];
+}
+
+function drawTerrain() {
+    if (!terrain.length) return;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (var x=0; x<terrain.length; x++) ctx.lineTo(x, H - terrain[x]);
+    ctx.lineTo(W, H); ctx.closePath();
+    // Find top of terrain for gradient
+    var minTY = H;
+    for (var tx2=0; tx2<terrain.length; tx2++) { var sy2 = H - terrain[tx2]; if (sy2<minTY) minTY = sy2; }
+    var tg = ctx.createLinearGradient(0,minTY,0,H);
+    tg.addColorStop(0,"#2d6a1e"); tg.addColorStop(.15,"#3d7a2e");
+    tg.addColorStop(.4,"#5a4a2a"); tg.addColorStop(.7,"#4a3a20");
+    tg.addColorStop(1,"#3a2a15");
+    ctx.fillStyle = tg; ctx.fill();
+    // Grass edge
+    ctx.strokeStyle = "#4d9a3e"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var x2=0; x2<terrain.length; x2++) {
+        if (x2===0) ctx.moveTo(x2, H-terrain[x2]);
+        else ctx.lineTo(x2, H-terrain[x2]);
+    }
+    ctx.stroke();
+}
+
+function drawTanks() {
+    for (var i=0; i<players.length; i++) {
+        var p = players[i];
+        var tx = p.x, ty = H - p.y;
+        if (p.hp <= 0) { drawDeadTank(p, tx, ty); continue; }
+        // Treads
+        ctx.fillStyle = darken(p.color, .55);
+        ctx.fillRect(tx-14, ty+2, 28, 5);
+        // Body
+        ctx.fillStyle = p.color;
+        roundRect(tx-12, ty-6, 24, 8, 2);
+        // Turret dome
+        ctx.beginPath(); ctx.arc(tx, ty-6, 6, Math.PI, 0); ctx.fill();
+        // Barrel
+        var ang = p.angle * Math.PI / 180;
+        var blen = 18;
+        var bx = tx + Math.cos(ang)*blen, by = ty-6-Math.sin(ang)*blen;
+        ctx.strokeStyle = p.color; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(tx, ty-6); ctx.lineTo(bx, by); ctx.stroke();
+        // Shield glow
+        if (p.shield && p.shield_hp > 0) {
+            ctx.strokeStyle = "rgba(0,200,255,.45)"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(tx, ty-4, 20, 0, Math.PI*2); ctx.stroke();
+        }
+        // Label
+        ctx.font = "bold 10px monospace"; ctx.textAlign = "center";
+        ctx.fillStyle = "#fff"; ctx.shadowColor = "#000"; ctx.shadowBlur = 2;
+        ctx.fillText(p.name, tx, ty-28); ctx.shadowBlur = 0;
+        // HP bar
+        var hw=30, hh=3; ctx.fillStyle="#333"; ctx.fillRect(tx-hw/2, ty-24, hw, hh);
+        var hf = p.hp/100;
+        ctx.fillStyle = hf>.5?"#0f0":hf>.25?"#ff0":"#f00";
+        ctx.fillRect(tx-hw/2, ty-24, hw*hf, hh);
+        // Turn arrow
+        if (i === currentTurn) {
+            ctx.fillStyle = "#fc0";
+            ctx.beginPath(); ctx.moveTo(tx,ty-38); ctx.lineTo(tx-4,ty-44); ctx.lineTo(tx+4,ty-44); ctx.closePath(); ctx.fill();
+        }
+    }
+}
+
+function drawDeadTank(p, tx, ty) {
+    ctx.globalAlpha = .4;
+    ctx.fillStyle = "#555"; ctx.fillRect(tx-10, ty-3, 20, 6);
+    ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(tx,ty+2,15,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "#f00"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(tx-6,ty-10); ctx.lineTo(tx+6,ty+2);
+    ctx.moveTo(tx+6,ty-10); ctx.lineTo(tx-6,ty+2); ctx.stroke();
+}
+
+function roundRect(x,y,w,h,r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+    ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r);
+    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r);
+    ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath(); ctx.fill();
+}
+
+function darken(hex,f) {
+    var r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+    return "rgb("+Math.floor(r*f)+","+Math.floor(g*f)+","+Math.floor(b*f)+")";
+}
+
+// ═══════════ PROJECTILE PHYSICS ═══════════
+function handleFireEvent(msg) {
+    var pi = msg.playerIndex;
+    if (pi == null || !players[pi]) return;
+    var p = players[pi];
+    var tx = p.x, ty = H - p.y;
+    var ang = msg.angle * Math.PI / 180;
+    var spd = msg.power * 1.2;
+    var vx = spd * Math.cos(ang), vy = -spd * Math.sin(ang);
+    var wep = msg.weaponData || {};
+    projectiles.push({
+        x:tx, y:ty-6, startX:tx, startY:ty-6,
+        vx0:vx, vy0:vy, t:0,
+        color: wep.color||"#ff0", radius: wep.radius||35,
+        special: wep.special||null, subCount: wep.sub_count||1,
+        isDirt: wep.is_dirt||false, weapon: msg.weapon,
+        playerId: msg.playerId, trail:[], splitDone:false, bounces:0, active:true
+    });
+    if (!animating) startLoop();
+}
+
+function startLoop() { if(animating)return; animating=true; gameLoopId=requestAnimationFrame(gameLoop); }
+
+function gameLoop() {
+    var needsFrame = false;
+    var grav = (physics.gravity||9.8) * 4;
+    var wf = wind * 0.5;
+    var dt = physics.step_size || 0.08;
+
+    for (var pi2=0; pi2<projectiles.length; pi2++) {
+        var proj = projectiles[pi2];
+        if (!proj.active) continue;
+        needsFrame = true;
+        for (var step=0; step<4; step++) {
+            proj.t += dt;
+            proj.x = proj.startX + proj.vx0*proj.t + .5*wf*proj.t*proj.t;
+            proj.y = proj.startY + proj.vy0*proj.t + .5*grav*proj.t*proj.t;
+            proj.trail.push({x:proj.x, y:proj.y});
+            if (proj.trail.length > 60) proj.trail.shift();
+
+            // MIRV / Death's Head split at apex
+            if (!proj.splitDone && (proj.special==="mirv"||proj.special==="deaths_head")) {
+                var curVy = proj.vy0 + grav*proj.t;
+                if (curVy > 0 && proj.t > 0.5) { doMirvSplit(proj); proj.active=false; break; }
+            }
+
+            // Off sides
+            if (proj.x<0||proj.x>=W) {
+                proj.active=false;
+                var edgeX = Math.max(0,Math.min(W-1,Math.floor(proj.x)));
+                sendExplosion(proj.x, H-terrain[edgeX], proj.radius);
+                break;
+            }
+
+            // Terrain hit
+            var tsy = H - terrain[Math.floor(Math.max(0,Math.min(terrain.length-1,proj.x)))];
+            if (proj.y >= tsy) {
+                proj.active = false;
+                if (proj.special==="leapfrog" && proj.bounces<2) {
+                    proj.bounces++;
+                    explodeLocal(proj.x, tsy, proj.radius*.5, proj.color);
+                    sendExplosion(proj.x, tsy, proj.radius*.6);
+                    projectiles.push({
+                        x:proj.x, y:tsy-5, startX:proj.x, startY:tsy-5,
+                        vx0:proj.vx0*.6, vy0:-Math.abs(proj.vy0)*.4, t:0,
+                        color:proj.color, radius:proj.radius,
+                        special:"leapfrog", subCount:1, isDirt:proj.isDirt,
+                        weapon:proj.weapon, playerId:proj.playerId,
+                        trail:[], splitDone:false, bounces:proj.bounces, active:true
+                    });
+                } else if (proj.special==="funky") {
+                    for (var fi=0;fi<proj.subCount;fi++) {
+                        (function(idx){
+                            var fx=proj.x+(Math.random()-.5)*120;
+                            var fy=tsy+(Math.random()-.5)*60;
+                            setTimeout(function(){
+                                explodeLocal(fx,fy,proj.radius,proj.color);
+                                sendExplosion(fx,fy,proj.radius);
+                            }, idx*150);
+                        })(fi);
+                    }
+                } else if (proj.special==="roller") {
+                    doRoller(proj.x, tsy, proj);
+                } else if (proj.special==="napalm"||proj.special==="hot_napalm") {
+                    doNapalm(proj.x, tsy, proj);
+                } else {
+                    explodeLocal(proj.x, tsy, proj.radius, proj.color);
+                    sendExplosion(proj.x, tsy, proj.radius);
+                }
+                break;
+            }
+            if (proj.y < -500) { proj.active=false; break; }
+        }
+    }
+
+    // Update explosions
+    for (var ei=explosions.length-1; ei>=0; ei--) {
+        explosions[ei].t++;
+        if (explosions[ei].t > explosions[ei].maxT) explosions.splice(ei,1);
+    }
+    // Update particles
+    for (var pti=particles.length-1; pti>=0; pti--) {
+        var pt = particles[pti];
+        pt.x += pt.vx; pt.y += pt.vy; pt.vy += .15; pt.life--;
+        if (pt.life<=0) particles.splice(pti,1);
+    }
+    // Clean projectiles
+    var newProj = [];
+    for (var ci=0;ci<projectiles.length;ci++) { if(projectiles[ci].active) newProj.push(projectiles[ci]); }
+    projectiles = newProj;
+
+    render();
+
+    if (projectiles.length>0 || explosions.length>0 || particles.length>0) {
+        gameLoopId = requestAnimationFrame(gameLoop);
+    } else {
+        animating = false;
+        // Auto advance turn
+        var me = getMe();
+        if (me && players.indexOf(me) === currentTurn) {
+            setTimeout(function(){ send({type:"next_turn"}); }, 500);
+        }
+    }
+}
+
+function doMirvSplit(proj) {
+    var n = proj.subCount || 5;
+    var spread = proj.special==="deaths_head" ? .4 : .3;
+    var baseVx = proj.vx0 * .3;
+    var grav = (physics.gravity||9.8)*4;
+    var curVy = proj.vy0 + grav*proj.t;
+    for (var i=0;i<n;i++) {
+        var off = (i-(n-1)/2)*spread;
+        projectiles.push({
+            x:proj.x, y:proj.y, startX:proj.x, startY:proj.y,
+            vx0:baseVx+off*80, vy0:curVy*.5-Math.random()*20, t:0,
+            color:proj.color, radius:proj.radius, special:null, subCount:1,
+            isDirt:proj.isDirt, weapon:proj.weapon, playerId:proj.playerId,
+            trail:[], splitDone:true, bounces:0, active:true
+        });
+    }
+    explodeLocal(proj.x, proj.y, 15, "#fff");
+}
+
+function doRoller(sx, sy, proj) {
+    var dir = proj.vx0>0?1:-1;
+    var rx = sx, steps = 0, maxS = 15;
+    var iv = setInterval(function(){
+        rx += dir*8; steps++;
+        if (rx<5||rx>=W-5||steps>=maxS) {
+            clearInterval(iv);
+            var fy2 = H - terrain[Math.floor(Math.max(0,Math.min(terrain.length-1,rx)))];
+            explodeLocal(rx, fy2, proj.radius, proj.color);
+            sendExplosion(rx, fy2, proj.radius);
+            return;
+        }
+        var ry=H-terrain[Math.floor(rx)];
+        particles.push({x:rx,y:ry,vx:(Math.random()-.5)*2,vy:-Math.random()*3,life:15,color:proj.color});
+        if (!animating) startLoop();
+    }, 80);
+}
+
+function doNapalm(cx, cy, proj) {
+    var spread = proj.special==="hot_napalm"?100:60;
+    var nSteps = proj.special==="hot_napalm"?12:8;
+    explodeLocal(cx, cy, proj.radius*.7, "#f60");
+    sendExplosion(cx, cy, proj.radius);
+    for (var ni=1; ni<=nSteps; ni++) {
+        (function(idx){
+            var lx = cx - idx*(spread/nSteps);
+            var rxx = cx + idx*(spread/nSteps);
+            setTimeout(function(){
+                [lx,rxx].forEach(function(nx){
+                    if (nx>0 && nx<W) {
+                        var ny = H-terrain[Math.floor(nx)];
+                        for (var j=0;j<5;j++){
+                            particles.push({
+                                x:nx+(Math.random()-.5)*10, y:ny-Math.random()*20,
+                                vx:(Math.random()-.5)*2, vy:-Math.random()*4-2,
+                                life:25+Math.random()*15,
+                                color:Math.random()>.5?"#f40":"#f80"
+                            });
+                        }
+                    }
+                });
+                if (!animating) startLoop();
+            }, idx*100);
+        })(ni);
+    }
+}
+
+function explodeLocal(x, y, radius, color) {
+    explosions.push({x:x, y:y, radius:radius, color:color, t:0, maxT:30});
+    var count = Math.min(40, Math.floor(radius*1.2));
+    for (var i=0;i<count;i++) {
+        var a = Math.random()*Math.PI*2;
+        var s = Math.random()*5+1;
+        particles.push({
+            x:x, y:y, vx:Math.cos(a)*s, vy:Math.sin(a)*s-2,
+            life:20+Math.random()*25,
+            color:i%3===0?"#ff0":i%3===1?color:"#f80"
+        });
+    }
+    if (radius>50) screenShake(radius/15, 200);
+    if (!animating) startLoop();
+}
+
+function sendExplosion(x, screenY, radius) {
+    send({type:"explosion", x:x, y:H - screenY, radius:radius});
+}
+
+function drawProjectiles() {
+    for (var i=0;i<projectiles.length;i++) {
+        var p2=projectiles[i]; if(!p2.active) continue;
+        // Trail
+        ctx.strokeStyle=p2.color; ctx.lineWidth=1; ctx.globalAlpha=.4;
+        ctx.beginPath();
+        for (var ti=0;ti<p2.trail.length;ti++) {
+            if(ti===0) ctx.moveTo(p2.trail[ti].x, p2.trail[ti].y);
+            else ctx.lineTo(p2.trail[ti].x, p2.trail[ti].y);
+        }
+        ctx.stroke(); ctx.globalAlpha=1;
+        // Dot + glow
+        ctx.fillStyle=p2.color; ctx.shadowColor=p2.color; ctx.shadowBlur=8;
+        ctx.beginPath(); ctx.arc(p2.x,p2.y,3,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0;
+    }
+}
+
+function drawExplosions() {
+    for (var i=0;i<explosions.length;i++) {
+        var ex=explosions[i];
+        var prog=ex.t/ex.maxT;
+        var r2=ex.radius*(.3+prog*.7);
+        ctx.globalAlpha=1-prog;
+        var grd=ctx.createRadialGradient(ex.x,ex.y,0,ex.x,ex.y,r2);
+        grd.addColorStop(0,"#fff"); grd.addColorStop(.2,ex.color);
+        grd.addColorStop(.6,"#f60"); grd.addColorStop(1,"transparent");
+        ctx.fillStyle=grd;
+        ctx.beginPath(); ctx.arc(ex.x,ex.y,r2,0,Math.PI*2); ctx.fill();
+        ctx.globalAlpha=1;
+    }
+}
+
+function drawParticles() {
+    for (var i=0;i<particles.length;i++) {
+        var pt2=particles[i];
+        ctx.globalAlpha=Math.max(0, pt2.life/40);
+        ctx.fillStyle=pt2.color;
+        ctx.fillRect(pt2.x-1, pt2.y-1, 3, 3);
+    }
+    ctx.globalAlpha=1;
+}
+
+// ═══════════ SCREEN SHAKE ═══════════
+var shakeTimer = null;
+function screenShake(amount, dur) {
+    var cont = document.querySelector(".battle-container");
+    if (shakeTimer) clearTimeout(shakeTimer);
+    var iv = setInterval(function(){
+        var dx=(Math.random()-.5)*amount*2;
+        var dy=(Math.random()-.5)*amount*2;
+        cont.style.transform = "translate("+dx+"px,"+dy+"px)";
+    }, 30);
+    shakeTimer = setTimeout(function(){ clearInterval(iv); cont.style.transform=""; }, dur);
+}
+
+// ═══════════ UI ═══════════
+function getMe() {
+    for (var i=0;i<players.length;i++) { if(players[i].id===myPlayerId) return players[i]; }
+    return null;
+}
+
+function updateUI() {
+    document.getElementById("roundDisplay").textContent = roundNumber+"/"+maxRounds;
+    // Wind
+    var wv = document.getElementById("windValue");
+    var wa = document.getElementById("windArrow");
+    wv.textContent = Math.abs(wind).toFixed(1);
+    if (wind>.5){wa.textContent="\u25B6";wa.style.color="#f84";}
+    else if(wind<-.5){wa.textContent="\u25C0";wa.style.color="#48f";}
+    else{wa.textContent="\u2022";wa.style.color="#888";}
+
+    // Player badges
+    var bar = document.getElementById("statusList");
+    bar.innerHTML = "";
+    for (var i=0;i<players.length;i++) {
+        var p=players[i];
+        var badge = document.createElement("div");
+        badge.className = "player-badge" + (p.hp<=0?" dead":"") + (i===currentTurn?" active":"");
+        badge.innerHTML = '<span class="badge-color" style="background:'+p.color+'"></span>'+
+            '<span style="color:'+p.color+'">'+p.name+'</span>'+
+            '<span class="badge-hp">'+p.hp+'%</span>'+
+            '<span class="badge-cash">$'+(p.cash/1000).toFixed(0)+'k</span>';
+        bar.appendChild(badge);
+    }
+
+    // Weapon select
+    var sel = document.getElementById("weaponSelect");
+    var curVal = sel.value;
+    sel.innerHTML = "";
+    var me = getMe();
+    if (me) {
+        var keys = Object.keys(weapons);
+        for (var wi=0;wi<keys.length;wi++) {
+            var wk=keys[wi], wpn=weapons[wk];
+            var stock = me.inventory[wk];
+            if (stock === 0) continue;
+            var opt = document.createElement("option");
+            opt.value = wk;
+            var ss = stock<0?"\u221E":"x"+stock;
+            opt.textContent = wpn.name+" ["+ss+"]";
+            sel.appendChild(opt);
+        }
+    }
+    if (curVal && sel.querySelector('option[value="'+curVal+'"]')) sel.value = curVal;
+
+    // Fire button
+    var isMyTurn = me && players.indexOf(me)===currentTurn && me.hp>0;
+    document.getElementById("fireBtn").disabled = !isMyTurn;
+
+    // Shop cash
+    if (me) document.getElementById("shopCash").textContent = "$"+me.cash.toLocaleString();
+}
+
+function updateShop() {
+    var me = getMe(); if(!me) return;
+    // Weapons
+    var wg = document.getElementById("weaponShop");
+    wg.innerHTML = "";
+    var wKeys = Object.keys(weapons);
+    for (var i=0;i<wKeys.length;i++) {
+        var k=wKeys[i], w2=weapons[k];
+        if (w2.price<=0) continue;
+        var owned = me.inventory[k]||0;
+        var div = document.createElement("div"); div.className="shop-item";
+        div.innerHTML = '<span class="shop-item-name" style="color:'+w2.color+'">'+w2.name+'</span>'+
+            '<span class="shop-item-price">$'+w2.price.toLocaleString()+'</span>'+
+            '<span class="shop-item-owned">'+(owned>0?'x'+owned:'-')+'</span>'+
+            '<button class="shop-item-buy" data-wk="'+k+'">BUY</button>';
+        div.querySelector("button").addEventListener("click", (function(key){ return function(){ buyWeapon(key); }; })(k));
+        wg.appendChild(div);
+    }
+    // Items
+    var ig = document.getElementById("itemShop");
+    ig.innerHTML = "";
+    var iKeys = Object.keys(items);
+    for (var j=0;j<iKeys.length;j++) {
+        var ik=iKeys[j], it=items[ik];
+        var div2 = document.createElement("div"); div2.className="shop-item";
+        var desc = "";
+        if (it.absorption) desc=Math.round(it.absorption*100)+"% absorb";
+        else if (it.type==="parachute") desc="fall safety";
+        else if (it.type==="fuel") desc="move tank";
+        div2.innerHTML = '<span class="shop-item-name">'+it.name+'</span>'+
+            '<span class="shop-item-price">$'+it.price.toLocaleString()+'</span>'+
+            '<span class="shop-item-owned" style="font-size:10px">'+desc+'</span>'+
+            '<button class="shop-item-buy" data-ik="'+ik+'">BUY</button>';
+        div2.querySelector("button").addEventListener("click", (function(key){ return function(){ buyItem(key); }; })(ik));
+        ig.appendChild(div2);
+    }
+    document.getElementById("shopCash").textContent = "$"+me.cash.toLocaleString();
+}
+
+function buyWeapon(key) { send({type:"shop_buy", weapon:key, qty:1}); }
+function buyItem(key) { send({type:"buy_item", item:key}); }
+
+function fire() {
+    var w3 = document.getElementById("weaponSelect").value;
+    var a = parseInt(document.getElementById("angleSlider").value);
+    var pw = parseInt(document.getElementById("powerSlider").value);
+    if (!w3) return;
+    send({type:"fire", weapon:w3, angle:a, power:pw});
+}
+
+function showStatus(text) {
+    var ov = document.getElementById("statusOverlay");
+    ov.textContent = text; ov.style.opacity = 1;
+    setTimeout(function(){ ov.style.opacity = 0; }, 3500);
+}
+
+function showRoundOver(winner, rnd) {
+    var ov = document.getElementById("roundOverlay");
+    ov.classList.remove("hidden");
+    document.getElementById("roundTitle").textContent = "ROUND " + rnd + " COMPLETE";
+    document.getElementById("roundMessage").textContent = winner ? winner + " wins the round!" : "Draw!";
+    var sb = document.getElementById("scoreBoard");
+    sb.innerHTML = "";
+    var sorted = players.slice().sort(function(a,b){ return (b.score||0)-(a.score||0); });
+    for (var i=0;i<sorted.length;i++) {
+        var row = document.createElement("div"); row.className="score-row";
+        row.innerHTML = '<span class="score-name" style="color:'+sorted[i].color+'">'+sorted[i].name+'</span>'+
+            '<span class="score-pts">'+(sorted[i].score||0)+' pts</span>';
+        sb.appendChild(row);
+    }
+    document.getElementById("nextRoundBtn").onclick = function(){
+        ov.classList.add("hidden");
+        send({type:"new_round"});
+    };
+}
+
+// ═══════════ INIT ═══════════
+document.getElementById("joinBtn").addEventListener("click", joinGame);
+document.getElementById("playerNameInput").addEventListener("keydown", function(e){
+    if (e.key==="Enter") joinGame();
+});
+document.getElementById("fireBtn").addEventListener("click", fire);
+
+var angleSlider = document.getElementById("angleSlider");
+var powerSlider = document.getElementById("powerSlider");
+angleSlider.addEventListener("input", function(){ document.getElementById("angleVal").textContent = angleSlider.value+"\u00B0"; });
+powerSlider.addEventListener("input", function(){ document.getElementById("powerVal").textContent = powerSlider.value; });
+
+document.getElementById("shopToggle").addEventListener("click", function(){
+    var sp = document.getElementById("shopPanel");
+    sp.classList.toggle("hidden");
+    if (!sp.classList.contains("hidden")) updateShop();
+});
+document.getElementById("shopClose").addEventListener("click", function(){
+    document.getElementById("shopPanel").classList.add("hidden");
+});
+
+// Keyboard shortcuts
+document.addEventListener("keydown", function(e){
+    if (e.target.tagName==="INPUT"||e.target.tagName==="SELECT"||e.target.tagName==="TEXTAREA") return;
+    if (e.key===" "||e.key==="Enter"){e.preventDefault();fire();}
+    if (e.key==="ArrowLeft"){angleSlider.value=Math.min(180,parseInt(angleSlider.value)+1);angleSlider.dispatchEvent(new Event("input"));}
+    if (e.key==="ArrowRight"){angleSlider.value=Math.max(0,parseInt(angleSlider.value)-1);angleSlider.dispatchEvent(new Event("input"));}
+    if (e.key==="ArrowUp"){powerSlider.value=Math.min(240,parseInt(powerSlider.value)+2);powerSlider.dispatchEvent(new Event("input"));}
+    if (e.key==="ArrowDown"){powerSlider.value=Math.max(5,parseInt(powerSlider.value)-2);powerSlider.dispatchEvent(new Event("input"));}
+});
+
+connect();
+
+// Auto-join for logged-in users
+{% if user %}
+setTimeout(function(){
+    if (ws && ws.readyState === 1 && !myPlayerId) {
+        joinGame();
+    } else if (ws) {
+        var origOpen = ws.onopen;
+        ws.onopen = function() { if(origOpen) origOpen(); joinGame(); };
+    }
+}, 400);
+{% endif %}
+
+})();
+</script>
+{% endblock %}

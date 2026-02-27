@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Mail</h2>
+    <p>Private messages for your contained network.</p>
+</div>
+
+<div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+    <h3 style="margin:0;">Inbox</h3>
+    <a href="/mail/compose" class="btn-primary">Compose</a>
+</div>
+
+<div class="card">
+    {% if inbox_messages and inbox_messages|length > 0 %}
+    <table class="users-table mail-table">
+        <thead>
+            <tr>
+                <th>From</th>
+                <th>Subject</th>
+                <th>Status</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in inbox_messages %}
+            <tr class="{{ 'is-unread' if not m.is_read else '' }}">
+                <td>{{ m.sender.username if m.sender else "Unknown" }}</td>
+                <td><a href="/mail/message/{{ m.id }}"><strong>{{ m.subject }}</strong></a></td>
+                <td>{{ "Read" if m.is_read else "Unread" }}</td>
+                <td>{{ m.created_at.strftime('%Y-%m-%d %H:%M') if m.created_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">Inbox is empty.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3>Sent</h3>
+    {% if sent_messages and sent_messages|length > 0 %}
+    <table class="users-table mail-table">
+        <thead>
+            <tr>
+                <th>To</th>
+                <th>Subject</th>
+                <th>Delivery</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in sent_messages %}
+            <tr>
+                <td>
+                    <span class="mail-recipient">
+                        {% set recipient_name = (m.recipient.display_name if m.recipient and m.recipient.display_name else (m.recipient.username if m.recipient else m.recipient_address)) %}
+                        <span class="mail-avatar-xxs" title="{{ recipient_name }}">
+                            {% if m.recipient and m.recipient.avatar_url %}
+                            <img src="{{ m.recipient.avatar_url }}" alt="{{ recipient_name }}">
+                            {% else %}
+                            {{ (recipient_name[:1] if recipient_name else 'U')|upper }}
+                            {% endif %}
+                        </span>
+                        <span class="mail-recipient-name">{{ recipient_name }}</span>
+                    </span>
+                </td>
+                <td><a href="/mail/message/{{ m.id }}"><strong>{{ m.subject }}</strong></a></td>
+                <td>{{ m.delivery_status }}</td>
+                <td>{{ m.created_at.strftime('%Y-%m-%d %H:%M') if m.created_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">No sent messages yet.</p>
+    {% endif %}
+</div>
+
+<style>
+    .mail-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        overflow: hidden;
+    }
+
+    .mail-table th,
+    .mail-table td {
+        border: 1px solid var(--border);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: middle;
+    }
+
+    .mail-table thead th {
+        background: var(--bg);
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 700;
+    }
+
+    .mail-table tbody tr:hover {
+        background: rgba(79, 70, 229, 0.04);
+    }
+
+    .mail-table tbody tr.is-unread {
+        background: rgba(79, 70, 229, 0.06);
+    }
+
+    .mail-table tbody tr.is-unread td {
+        font-weight: 600;
+    }
+
+    .mail-table a {
+        color: var(--text);
+        text-decoration: none;
+    }
+
+    .mail-table a:hover {
+        color: var(--primary);
+        text-decoration: underline;
+    }
+
+    .mail-recipient {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+    }
+
+    .mail-recipient-name {
+        display: inline-block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .mail-avatar-xxs {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text-muted);
+        font-size: 0.62rem;
+        font-weight: 700;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex: 0 0 auto;
+    }
+
+    .mail-avatar-xxs img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+</style>
+{% endblock %}

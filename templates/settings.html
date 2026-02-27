@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="settings-container">
+    <div class="page-header">
+        <h2>Profile Settings</h2>
+        <p>Customize how you appear on {{ node_name }}.</p>
+    </div>
+
+    <div class="card settings-card">
+        <form action="/users/settings/profile" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="theme_preset">Theme Preset</label>
+                <select id="theme_preset" name="theme_preset">
+                    <option value="default" {% if user.theme_preset=='default' %}selected{% endif %}>Default (Clean &
+                        Modern)</option>
+                    <option value="ocean" {% if user.theme_preset=='ocean' %}selected{% endif %}>Ocean (Deep Blues)
+                    </option>
+                    <option value="sunset" {% if user.theme_preset=='sunset' %}selected{% endif %}>Sunset (Warm Oranges
+                        & Pinks)</option>
+                    <option value="midnight" {% if user.theme_preset=='midnight' %}selected{% endif %}>Midnight (Dark &
+                        Neon)</option>
+                    <option value="forest" {% if user.theme_preset=='forest' %}selected{% endif %}>Forest (Earthy
+                        Greens)</option>
+                    <option value="retro" {% if user.theme_preset=='retro' %}selected{% endif %}>Retro (90s Web
+                        Aesthetic)</option>
+                </select>
+                <p class="field-hint">Choose a pre-designed look for your profile.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="display_name">Display Name</label>
+                <input type="text" id="display_name" name="display_name" value="{{ user.display_name or '' }}"
+                    placeholder="Your name or nickname">
+                <p class="field-hint">Your public name shown to other users.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio" placeholder="Tell the world about yourself..."
+                    rows="4">{{ user.bio or '' }}</textarea>
+                <p class="field-hint">A short description for your profile.</p>
+            </div>
+
+            <div class="form-group">
+                <label>Birthday</label>
+                <div style="display:grid; grid-template-columns: 1fr 120px; gap:10px;">
+                    <select name="birth_month" id="birth_month">
+                        <option value="">Month</option>
+                        {% set selected_month = user.birthdate.month if user.birthdate else None %}
+                        {% for m in range(1, 13) %}
+                        <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>
+                            {{ ['January','February','March','April','May','June','July','August','September','October','November','December'][m-1] }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <select name="birth_day" id="birth_day">
+                        <option value="">Day</option>
+                        {% set selected_day = user.birthdate.day if user.birthdate else None %}
+                        {% for d in range(1, 32) %}
+                        <option value="{{ d }}" {% if selected_day == d %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <p class="field-hint">Month/day only. Used for annual recurring birthday events in Calendar.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="avatar_file">Profile Picture</label>
+                <div class="avatar-edit-container" style="display: flex; align-items: center; gap: 20px;">
+                    <div class="current-avatar-preview"
+                        style="width: 80px; height: 80px; border-radius: 12px; overflow: hidden; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #475569; border: 1px solid var(--border);">
+                        {% if user.avatar_url %}
+                        <img src="{{ user.avatar_url }}" alt="Current avatar"
+                            style="width: 100%; height: 100%; object-fit: cover;">
+                        {% else %}
+                        {{ user.username[0].upper() }}
+                        {% endif %}
+                    </div>
+                    <input type="file" id="avatar_file" name="avatar_file" accept="image/*">
+                </div>
+                <p class="field-hint">Upload a new picture from your device.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="custom_css">Custom CSS</label>
+                <textarea id="custom_css" name="custom_css" placeholder="/* Add your own profile styles here */
+
+/* Global theme variables */
+:root {
+  --primary: #4f46e5;
+  --primary-light: #818cf8;
+  --primary-dark: #3730a3;
+  --bg: #f8fafc;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --card: #ffffff;
+  --border: #e2e8f0;
+}
+
+/* Base elements */
+body { background: var(--bg); color: var(--text); }
+.card { background: var(--card); border-color: var(--border); }
+.btn-primary { background: var(--primary); }
+.btn-outline { border-color: var(--border); color: var(--text); }
+
+/* Profile page elements */
+.profile-container { }
+.profile-header { }
+.cover-photo { }
+.profile-info-main { }
+.profile-avatar-large { }
+.profile-text h2 { }
+.handle { }
+.bio { }
+.profile-tabs { }
+.profile-tabs a { }
+.profile-tabs a.active { }
+.timeline .post.card { }
+.post-header { }
+.user-avatar { }
+.user-name { }
+.post-date { }
+.post-content { }
+.post-footer { }
+.signature { }
+.empty-state { }" rows="20">{{ user.custom_css or '' }}</textarea>
+                <p class="field-hint">Advanced: Inject your own CSS to personalize your profile page.</p>
+            </div>
+
+            <div class="form-group">
+                <label>Module Bar Visibility</label>
+                <p class="field-hint">Choose which enabled modules appear in your top module bar.</p>
+                {% if active_modules and active_modules|length > 0 %}
+                <div style="display: grid; gap: 8px; margin-top: 10px;">
+                    {% for module in active_modules %}
+                    {% set is_hidden = hidden_modules and module.name in hidden_modules %}
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+                        <input type="checkbox" name="visible_module_names" value="{{ module.name }}" {% if not is_hidden %}checked{% endif %} style="width: 18px; height: 18px;">
+                        <span>{{ module.icon }} {{ module.display_name }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="field-hint">No modules are currently enabled by the server admin.</p>
+                {% endif %}
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Save Changes</button>
+                <a href="/users/{{ user.username }}" class="btn-cancel">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Password Change -->
+    <div class="card settings-card" style="margin-top: 24px;">
+        <h3 style="margin-top: 0;">🔑 Change Password</h3>
+        {% if request.query_params.get('pw') == 'changed' %}
+        <div style="background: #166534; color: #bbf7d0; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px;">Password changed successfully.</div>
+        {% elif request.query_params.get('pw') == 'bad-current' %}
+        <div style="background: #7f1d1d; color: #fecaca; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px;">Current password is incorrect.</div>
+        {% elif request.query_params.get('pw') == 'mismatch' %}
+        <div style="background: #7f1d1d; color: #fecaca; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px;">New password and confirmation do not match.</div>
+        {% elif request.query_params.get('pw') == 'weak' %}
+        <div style="background: #7f1d1d; color: #fecaca; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px;">New password must be at least 4 characters.</div>
+        {% elif request.query_params.get('pw') == 'same' %}
+        <div style="background: #7f1d1d; color: #fecaca; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px;">New password must be different from your current password.</div>
+        {% endif %}
+        <form action="/users/settings/change-password" method="POST">
+            <div class="form-group">
+                <label for="current_password">Current Password</label>
+                <input type="password" id="current_password" name="current_password" required autocomplete="current-password">
+            </div>
+            <div class="form-group">
+                <label for="new_password">New Password</label>
+                <input type="password" id="new_password" name="new_password" required minlength="4" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+                <label for="confirm_password">Confirm New Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required minlength="4" autocomplete="new-password">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Change Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

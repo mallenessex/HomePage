@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="calendar-dashboard">
+    <!-- Top Utility Bar: Quick Add -->
+    <div class="utility-bar top">
+        <div class="card add-event-mini">
+            <form action="/calendar/events/submit" method="POST" class="inline-form">
+                <div class="input-stack">
+                    <span class="input-label">Quick Add</span>
+                    <input type="text" name="title" placeholder="What's happening?" required>
+                </div>
+                <div class="input-stack">
+                    <span class="input-label">From</span>
+                    <input type="datetime-local" name="start_time" required>
+                </div>
+                <div class="input-stack">
+                    <span class="input-label">To</span>
+                    <input type="datetime-local" name="end_time" required>
+                </div>
+                <div class="input-stack location-input">
+                    <span class="input-label">Where</span>
+                    <input type="text" name="location" placeholder="Location">
+                </div>
+                <button type="submit" class="btn-primary-glow">Add Event</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Wall Calendar Section -->
+    <div class="wall-calendar-container">
+        <div class="calendar-header-v3">
+            <div class="month-title">
+                <h2 id="monthDisplay">Month Year</h2>
+                <div class="month-controls">
+                    <button class="nav-btn-v3" id="prevMonth" aria-label="Previous Month">←</button>
+                    <button class="today-btn-v3" id="goToday">Today</button>
+                    <button class="nav-btn-v3" id="nextMonth" aria-label="Next Month">→</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="calendar-grid-v3">
+            <div class="day-headers">
+                <div class="header-day">Sun</div>
+                <div class="header-day">Mon</div>
+                <div class="header-day">Tue</div>
+                <div class="header-day">Wed</div>
+                <div class="header-day">Thu</div>
+                <div class="header-day">Fri</div>
+                <div class="header-day">Sat</div>
+            </div>
+            <div id="calendarGrid" class="days-container-v3"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Utility Bar: External Sync -->
+    <div class="utility-bar bottom">
+        <div class="card sync-mini">
+            <div class="sync-status">
+                <span class="status-label">External Sync</span>
+                <div class="sync-pills">
+                    {% if 'google' in sync_options %}
+                    <a href="/calendar/sync/google/start" class="pill google connected" title="Google Synced">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg"
+                            width="14">
+                        Google Connected
+                    </a>
+                    {% else %}
+                    <a href="/calendar/sync/google" class="pill google" title="Setup Google Sync">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Google_Calendar_icon_%282020%29.svg"
+                            width="14">
+                        Setup Google
+                    </a>
+                    {% endif %}
+
+                    {% if 'outlook' in sync_options %}
+                    <a href="/calendar/sync/outlook/start" class="pill outlook connected" title="Outlook Synced">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/d/df/Microsoft_Office_Outlook_%282018%E2%80%93present%29.svg"
+                            width="14">
+                        Outlook Connected
+                    </a>
+                    {% else %}
+                    <a href="/calendar/sync/outlook" class="pill outlook" title="Setup Outlook Sync">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/d/df/Microsoft_Office_Outlook_%282018%E2%80%93present%29.svg"
+                            width="14">
+                        Setup Outlook
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Raw Data Bridge -->
+<textarea id="eventsSource" style="display:none;">
+[
+    {% for event in events %}
+    {
+        "id": {{ event.id }},
+        "title": "{{ event.title | escape }}",
+        "start": "{{ event.start_time.isoformat() }}",
+        "end": "{{ event.end_time.isoformat() }}",
+        "location": "{{ event.location or '' | escape }}",
+        "external": {{ 'true' if event.is_external else 'false' }}
+    }{{ "," if not loop.last }}
+    {% endfor %}
+]
+</textarea>
+
+<script>
+    const allEvents = JSON.parse(document.getElementById('eventsSource').value);
+    let viewDate = new Date();
+
+    function updateCalendar() {
+        const grid = document.getElementById('calendarGrid');
+        const monthTitle = document.getElementById('monthDisplay');
+        grid.innerHTML = '';
+
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+
+        monthTitle.innerText = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(viewDate);
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const lastDate = new Date(year, month + 1, 0).getDate();
+        const prevMonthLastDate = new Date(year, month, 0).getDate();
+
+        for (let i = firstDay - 1; i >= 0; i--) {
+            grid.appendChild(createCell(prevMonthLastDate - i, true));
+        }
+
+        const today = new Date();
+        for (let i = 1; i <= lastDate; i++) {
+            const isToday = (i === today.getDate() && month === today.getMonth() && year === today.getFullYear());
+            const cell = createCell(i, false, isToday);
+
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            const dayEvents = allEvents.filter(e => e.start.startsWith(dateStr));
+
+            if (dayEvents.length > 0) {
+                const evList = document.createElement('div');
+                evList.className = 'cell-events';
+                dayEvents.forEach(e => {
+                    const item = document.createElement('div');
+                    item.className = 'event-pill-v3' + (e.external ? ' external' : '');
+                    item.innerText = e.title;
+                    evList.appendChild(item);
+                });
+                cell.appendChild(evList);
+            }
+            grid.appendChild(cell);
+        }
+
+        const totalSoFar = firstDay + lastDate;
+        for (let i = 1; i <= (42 - totalSoFar); i++) {
+            grid.appendChild(createCell(i, true));
+        }
+    }
+
+    function createCell(num, isPadding, isToday = false) {
+        const div = document.createElement('div');
+        div.className = 'calendar-cell' + (isPadding ? ' padding-cell' : '') + (isToday ? ' today-cell' : '');
+        div.innerHTML = `<span class="date-number">${num}</span>`;
+        return div;
+    }
+
+    document.getElementById('prevMonth').onclick = () => { viewDate.setMonth(viewDate.getMonth() - 1); updateCalendar(); };
+    document.getElementById('nextMonth').onclick = () => { viewDate.setMonth(viewDate.getMonth() + 1); updateCalendar(); };
+    document.getElementById('goToday').onclick = () => { viewDate = new Date(); updateCalendar(); };
+
+    updateCalendar();
+</script>
+
+<style>
+    .calendar-dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        max-width: 1400px;
+        margin: 0 auto;
+        color: var(--text);
+    }
+
+    /* Utility Bars */
+    .utility-bar {
+        width: 100%;
+    }
+
+    .utility-bar.top {
+        margin-bottom: 0px;
+    }
+
+    .utility-bar.bottom {
+        margin-top: 10px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .add-event-mini {
+        padding: 15px 20px !important;
+    }
+
+    .inline-form {
+        display: flex;
+        align-items: flex-end;
+        gap: 15px;
+        width: 100%;
+    }
+
+    .input-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+    }
+
+    .input-label {
+        font-size: 0.65rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    .input-stack input {
+        height: 38px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--bg);
+        padding: 0 12px;
+        font-size: 0.85rem;
+        color: var(--text);
+    }
+
+    .btn-primary-glow {
+        height: 38px;
+        padding: 0 15px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-weight: 700;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+
+    .sync-mini {
+        padding: 15px 25px !important;
+        min-width: 400px;
+    }
+
+    .sync-status {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .status-label {
+        font-size: 0.65rem;
+        font-weight: 800;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .sync-pills {
+        display: flex;
+        gap: 10px;
+    }
+
+    .pill {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-decoration: none;
+        color: var(--text);
+        background: var(--card);
+    }
+
+    .pill.connected {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    /* Wall Calendar */
+    .wall-calendar-container {
+        background: var(--card);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border);
+        overflow: hidden;
+    }
+
+    .calendar-header-v3 {
+        padding: 25px 30px;
+        border-bottom: 2px solid var(--border);
+    }
+
+    .month-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .month-title h2 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text);
+    }
+
+    .month-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .nav-btn-v3,
+    .today-btn-v3 {
+        padding: 8px 15px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--card);
+        cursor: pointer;
+        color: var(--text);
+        font-weight: 700;
+    }
+
+    .nav-btn-v3:hover,
+    .today-btn-v3:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+
+    .day-headers {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .header-day {
+        padding: 12px;
+        text-align: center;
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: var(--text-muted);
+        text-transform: uppercase;
+    }
+
+    .days-container-v3 {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        background: var(--border);
+        gap: 1px;
+    }
+
+    .calendar-cell {
+        background: var(--card);
+        min-height: 140px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .padding-cell {
+        background: var(--bg);
+        opacity: 0.5;
+    }
+
+    .date-number {
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: var(--text);
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .today-cell .date-number {
+        background: var(--primary);
+        color: white;
+        border-radius: var(--radius-sm);
+    }
+
+    .cell-events {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .event-pill-v3 {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        background: var(--bg);
+        color: var(--text);
+        border-left: 3px solid var(--border);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .event-pill-v3.external {
+        border-left-color: #10b981;
+        background: rgba(16, 185, 129, 0.1);
+    }
+
+    /* theme-retro specific overrides */
+    body.theme-retro .wall-calendar-container {
+        border: 2px solid #808080;
+        border-right-color: #fff;
+        border-bottom-color: #fff;
+    }
+
+    body.theme-retro .calendar-cell {
+        border: 1px solid #808080;
+    }
+
+    body.theme-retro .today-cell .date-number {
+        background: #000080;
+        color: #fff;
+    }
+
+    body.theme-retro .event-pill-v3 {
+        border: 1px solid #000;
+        background: #fff;
+    }
+
+    @media (max-width: 1000px) {
+        .inline-form {
+            flex-wrap: wrap;
+        }
+
+        .sync-mini {
+            min-width: 100%;
+        }
+    }
+</style>
+{% endblock %}

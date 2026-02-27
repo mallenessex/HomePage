@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="chess-hub">
+    <div class="hub-header">
+        <div class="header-text">
+            <h2>&#9823; Chess</h2>
+            <p>Classic chess, played on your local node. Create a match and challenge a neighbor.</p>
+        </div>
+        {% if user %}
+        <button class="btn-primary" onclick="document.getElementById('create-game-modal').style.display='flex'">+ New Game</button>
+        {% endif %}
+    </div>
+
+    <div class="games-section">
+        <h3>Games</h3>
+        <div class="games-list">
+            {% if games %}
+            {% for game in games %}
+            <div class="chess-game-card card">
+                <div class="game-info">
+                    <div class="players">
+                        <div class="player">
+                            <span class="piece white">&#9812;</span>
+                            <b>{{ game.white_player.username if game.white_player else 'Open' }}</b>
+                        </div>
+                        <div class="vs">vs</div>
+                        <div class="player">
+                            <span class="piece black">&#9818;</span>
+                            <b>{{ game.black_player.username if game.black_player else 'Open' }}</b>
+                        </div>
+                    </div>
+                    <div class="game-meta">
+                        {% set status_labels = {"active": "In Progress", "white_win": "White Won", "black_win": "Black Won", "draw": "Draw"} %}
+                        <span class="status-badge {{ game.status }}">{{ status_labels.get(game.status, game.status|title) }}</span>
+                        <span class="last-move">{{ game.updated_at.strftime('%b %d, %H:%M') if game.updated_at else 'New' }}</span>
+                    </div>
+                </div>
+                <div class="game-actions">
+                    <a href="/games/chess/{{ game.id }}" class="btn-outline">
+                        {% if game.status == 'active' and (not game.white_player or not game.black_player) %}
+                        Join &amp; Play
+                        {% elif game.status == 'active' %}
+                        Play
+                        {% else %}
+                        View
+                        {% endif %}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="no-games card">
+                <div class="icon">&#9823;</div>
+                <h4>No games yet</h4>
+                <p>Start a new game to challenge someone on the node.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Create Game Modal -->
+<div id="create-game-modal" class="modal-overlay" style="display:none">
+    <div class="modal-card card">
+        <div class="modal-header">
+            <h3>New Chess Game</h3>
+            <button onclick="document.getElementById('create-game-modal').style.display='none'" class="close-btn">&times;</button>
+        </div>
+        <form action="/games/chess/create" method="POST" class="lobby-form">
+            <div class="form-group">
+                <label>Play As</label>
+                <div class="radio-group">
+                    <label class="radio-item">
+                        <input type="radio" name="as_white" value="True" checked>
+                        <span>&#9812; White (First Move)</span>
+                    </label>
+                    <label class="radio-item">
+                        <input type="radio" name="as_white" value="False">
+                        <span>&#9818; Black</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-outline" onclick="document.getElementById('create-game-modal').style.display='none'">Cancel</button>
+                <button type="submit" class="btn-primary">Create Game</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.chess-hub{padding-bottom:60px}
+.hub-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:40px;flex-wrap:wrap;gap:15px}
+.header-text h2{margin:0;font-size:2rem;font-weight:900}
+.header-text p{margin:4px 0 0;color:var(--text-muted,#94a3b8);font-size:.95rem}
+.games-section h3{font-size:1.1rem;margin-bottom:16px;opacity:.8}
+.games-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px}
+.chess-game-card{display:flex;justify-content:space-between;align-items:center;padding:20px!important;border:1px solid var(--border,#334155);background:var(--card,#1e293b)}
+.game-info{display:flex;flex-direction:column;gap:12px}
+.players{display:flex;align-items:center;gap:12px}
+.player{display:flex;align-items:center;gap:6px;font-size:1rem}
+.vs{font-size:.75rem;font-weight:800;opacity:.4}
+.game-meta{display:flex;gap:10px;align-items:center}
+.status-badge{font-size:.65rem;font-weight:800;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:rgba(16,185,129,.1);color:#10b981}
+.status-badge.white_win,.status-badge.black_win{background:rgba(239,68,68,.1);color:#ef4444}
+.status-badge.draw{background:rgba(167,139,250,.1);color:#a78bfa}
+.last-move{font-size:.8rem;color:var(--text-muted,#94a3b8)}
+.no-games{grid-column:1/-1;text-align:center;padding:50px!important;border:2px dashed var(--border,#334155)}
+.no-games .icon{font-size:3rem;margin-bottom:15px;opacity:.3}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal-card{width:420px;max-width:90%;padding:28px!important}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.close-btn{background:none;border:none;font-size:2rem;cursor:pointer;color:var(--text-muted,#94a3b8)}
+.lobby-form{display:flex;flex-direction:column;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.radio-group{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.radio-item{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--border,#334155);border-radius:8px;cursor:pointer}
+.radio-item:hover{background:rgba(99,102,241,.05)}
+.modal-footer{display:flex;justify-content:flex-end;gap:12px;margin-top:16px}
+</style>
+{% endblock %}

@@ -1,0 +1,7 @@
+# Extra dependencies for the HOMEPAGE Server frozen build (PyInstaller).
+# Install alongside requirements.txt when building:
+#   pip install -r requirements.txt -r requirements-server-build.txt
+
+pystray>=0.19
+Pillow>=10.0
+pyinstaller>=6.0

@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Server Setup — {{ platform_name }}</title>
+<style>
+    :root {
+        --primary: #4f46e5;
+        --primary-hover: #4338ca;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --border: #e2e8f0;
+        --text: #1e293b;
+        --text-muted: #64748b;
+        --success: #16a34a;
+        --danger: #dc2626;
+        --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+    }
+    .wizard-container {
+        width: 100%;
+        max-width: 680px;
+    }
+    .wizard-header {
+        text-align: center;
+        margin-bottom: 32px;
+    }
+    .wizard-header h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+    .wizard-header .logo {
+        font-size: 3rem;
+        margin-bottom: 8px;
+    }
+    .progress-bar {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 28px;
+    }
+    .progress-bar .step-dot {
+        flex: 1;
+        height: 6px;
+        border-radius: 3px;
+        background: var(--border);
+        transition: background 0.3s;
+    }
+    .progress-bar .step-dot.active {
+        background: var(--primary);
+    }
+    .progress-bar .step-dot.done {
+        background: var(--success);
+    }
+    .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 36px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / .07);
+    }
+    .card h2 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+    .card .subtitle {
+        color: var(--text-muted);
+        font-size: 0.92rem;
+        margin-bottom: 24px;
+        line-height: 1.5;
+    }
+    .form-group {
+        margin-bottom: 18px;
+    }
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 6px;
+    }
+    .form-group input[type="text"],
+    .form-group input[type="password"],
+    .form-group textarea,
+    .form-group select {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-family: inherit;
+        background: var(--bg);
+        transition: border-color 0.2s;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79,70,229,.1);
+    }
+    .form-group textarea { resize: vertical; min-height: 70px; }
+    .form-group .help { color: var(--text-muted); font-size: 0.82rem; margin-top: 4px; }
+
+    /* Module picker */
+    .module-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+    }
+    .module-card {
+        border: 2px solid var(--border);
+        border-radius: 10px;
+        padding: 14px;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+        user-select: none;
+    }
+    .module-card.selected {
+        border-color: var(--primary);
+        background: rgba(79,70,229,0.04);
+    }
+    .module-card.always-on {
+        border-color: var(--success);
+        background: rgba(22,163,74,0.04);
+        cursor: default;
+    }
+    .module-card .mod-icon { font-size: 1.5rem; }
+    .module-card .mod-name { font-weight: 700; font-size: 0.9rem; margin-top: 4px; }
+    .module-card .mod-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+    .module-card .mod-badge {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-top: 6px;
+    }
+    .module-card.always-on .mod-badge { background: rgba(22,163,74,0.12); color: var(--success); }
+    .module-card.selected .mod-badge { background: rgba(79,70,229,0.12); color: var(--primary); }
+
+    /* Radio cards */
+    .radio-cards { display: flex; gap: 12px; margin-bottom: 16px; }
+    .radio-card {
+        flex: 1;
+        border: 2px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+        cursor: pointer;
+        text-align: center;
+        transition: border-color 0.2s, background 0.2s;
+    }
+    .radio-card.selected {
+        border-color: var(--primary);
+        background: rgba(79,70,229,0.04);
+    }
+    .radio-card .rc-icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .radio-card .rc-title { font-weight: 700; font-size: 0.9rem; }
+    .radio-card .rc-desc { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* Buttons */
+    .btn-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+    }
+    .btn {
+        padding: 11px 28px;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.92rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.2s;
+        font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { background: var(--bg); }
+    .btn-ghost { background: transparent; color: var(--text-muted); }
+
+    .error-msg {
+        background: #fef2f2;
+        color: var(--danger);
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        margin-bottom: 16px;
+        display: none;
+    }
+    .error-msg.show { display: block; }
+
+    .step { display: none; }
+    .step.active { display: block; }
+
+    /* Welcome specific */
+    .welcome-features {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .welcome-feature {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.88rem;
+        color: var(--text-muted);
+    }
+    .welcome-feature .wf-icon { font-size: 1.2rem; }
+
+    /* Summary */
+    .summary-list { list-style: none; }
+    .summary-list li {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.92rem;
+    }
+    .summary-list li:last-child { border-bottom: none; }
+    .summary-label { color: var(--text-muted); font-weight: 600; }
+    .summary-value { font-weight: 700; text-align: right; max-width: 60%; word-break: break-word; }
+
+    .spinner {
+        display: inline-block;
+        width: 18px; height: 18px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* done screen */
+    .done-check {
+        font-size: 4rem;
+        text-align: center;
+        margin-bottom: 12px;
+    }
+
+    @media (max-width: 500px) {
+        .card { padding: 24px 18px; }
+        .module-grid { grid-template-columns: 1fr; }
+        .radio-cards { flex-direction: column; }
+        .welcome-features { grid-template-columns: 1fr; }
+    }
+</style>
+</head>
+<body>
+
+<div class="wizard-container">
+    <div class="wizard-header">
+        <div class="logo">🏠</div>
+        <h1>{{ platform_name }}</h1>
+    </div>
+
+    <div class="progress-bar" id="progressBar">
+        <div class="step-dot active"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+        <div class="step-dot"></div>
+    </div>
+
+    <div id="errorMsg" class="error-msg"></div>
+
+    <!-- ═══════════════ Step 1: Welcome ═══════════════ -->
+    <div class="step active" data-step="0">
+        <div class="card">
+            <h2>Welcome to {{ platform_name }}</h2>
+            <p class="subtitle">
+                Let's set up your private server. This wizard will walk you through
+                naming your server, picking modules, creating an admin account, and
+                configuring your network. It takes about 2 minutes.
+            </p>
+            <div class="welcome-features">
+                <div class="welcome-feature"><span class="wf-icon">🔒</span> Private &amp; self-hosted</div>
+                <div class="welcome-feature"><span class="wf-icon">🧩</span> Modular features</div>
+                <div class="welcome-feature"><span class="wf-icon">👨‍👩‍👧‍👦</span> Family-safe by default</div>
+                <div class="welcome-feature"><span class="wf-icon">🌐</span> Federation-ready</div>
+            </div>
+            <div class="btn-row" style="margin-top: 28px;">
+                <span></span>
+                <button class="btn btn-primary" onclick="goStep(1)">Get Started →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ Step 2: Server Identity ═══════════════ -->
+    <div class="step" data-step="1">
+        <div class="card">
+            <h2>🏠 Server Identity</h2>
+            <p class="subtitle">Give your server a name and description. This is what users will see.</p>
+
+            <div class="form-group">
+                <label for="serverName">Server Name</label>
+                <input type="text" id="serverName" value="My HOMEPAGE Server" placeholder="e.g. Smith Family Network">
+                <div class="help">The display name for your server.</div>
+            </div>
+
+            <div class="form-group">
+                <label for="serverDesc">Description (optional)</label>
+                <textarea id="serverDesc" placeholder="A brief description of your server..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="platformName">Platform Name</label>
+                <input type="text" id="platformName" value="HOMEPAGE" placeholder="HOMEPAGE">
+                <div class="help">Branding name shown in the header and footer. Default: HOMEPAGE.</div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-outline" onclick="goStep(0)">← Back</button>
+                <button class="btn btn-primary" onclick="goStep(2)">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ Step 3: Module Picker ═══════════════ -->
+    <div class="step" data-step="2">
+        <div class="card">
+            <h2>🧩 Choose Your Modules</h2>
+            <p class="subtitle">Select which features to enable. You can change this later from the admin panel.</p>
+
+            <div class="module-grid" id="moduleGrid">
+                {% for mod in available_modules %}
+                <div class="module-card {% if mod.always_on is defined and mod.always_on %}always-on{% endif %}"
+                     data-module="{{ mod.name }}"
+                     {% if not (mod.always_on is defined and mod.always_on) %}onclick="toggleModule(this)"{% endif %}>
+                    <div class="mod-icon">{{ mod.icon }}</div>
+                    <div class="mod-name">{{ mod.display_name }}</div>
+                    <div class="mod-desc">{{ mod.description }}</div>
+                    {% if mod.always_on is defined and mod.always_on %}
+                    <div class="mod-badge">Always On</div>
+                    {% else %}
+                    <div class="mod-badge" style="display:none;">Enabled</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="btn-row" style="margin-top: 24px;">
+                <button class="btn btn-outline" onclick="goStep(1)">← Back</button>
+                <button class="btn btn-primary" onclick="goStep(3)">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ Step 4: Admin Account ═══════════════ -->
+    <div class="step" data-step="3">
+        <div class="card">
+            <h2>👤 Admin Account</h2>
+            <p class="subtitle">Create the administrator account. You'll use this to manage your server.</p>
+
+            <div class="form-group">
+                <label for="adminUser">Username</label>
+                <input type="text" id="adminUser" value="admin" autocomplete="username">
+            </div>
+
+            <div class="form-group">
+                <label for="adminDisplayName">Display Name</label>
+                <input type="text" id="adminDisplayName" value="Administrator">
+            </div>
+
+            <div class="form-group">
+                <label for="adminPass">Password</label>
+                <input type="password" id="adminPass" placeholder="At least 4 characters" autocomplete="new-password">
+            </div>
+
+            <div class="form-group">
+                <label for="adminPassConfirm">Confirm Password</label>
+                <input type="password" id="adminPassConfirm" placeholder="Re-enter password" autocomplete="new-password">
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-outline" onclick="goStep(2)">← Back</button>
+                <button class="btn btn-primary" onclick="validateAdmin()">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ Step 5: Network ═══════════════ -->
+    <div class="step" data-step="4">
+        <div class="card">
+            <h2>🌐 Network Configuration</h2>
+            <p class="subtitle">How will users connect to your server?</p>
+
+            <div class="radio-cards" id="networkCards">
+                <div class="radio-card selected" data-mode="lan" onclick="selectNetwork('lan')">
+                    <div class="rc-icon">🏠</div>
+                    <div class="rc-title">LAN Only</div>
+                    <div class="rc-desc">Users on the same local network</div>
+                </div>
+                <div class="radio-card" data-mode="external" onclick="selectNetwork('external')">
+                    <div class="rc-icon">🌍</div>
+                    <div class="rc-title">Internet Accessible</div>
+                    <div class="rc-desc">Users can connect from anywhere</div>
+                </div>
+            </div>
+
+            <div id="lanInfo" style="margin-bottom: 16px;">
+                <div class="help" style="font-size: 0.88rem;">
+                    Your server will be accessible at <strong>http://{{ detected_lan_ip }}:8001</strong> on your local network.
+                </div>
+            </div>
+
+            <div id="externalPanel" style="display: none;">
+                <div class="form-group">
+                    <label for="externalUrl">External / Public URL</label>
+                    <input type="text" id="externalUrl" placeholder="https://myhomepage.duckdns.org:8443">
+                    <div class="help">Your public URL or dynamic DNS address. Make sure you've set up port forwarding on your router.</div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="joinPolicy">External Join Policy</label>
+                <select id="joinPolicy">
+                    <option value="conditional" selected>Accept Conditionally (admin managed)</option>
+                    <option value="none">Accept None (external connections disabled)</option>
+                    <option value="all">Accept All (WARNING: UNSAFE)</option>
+                </select>
+                <div class="help">Controls how remote client join handshakes are handled.</div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-outline" onclick="goStep(3)">← Back</button>
+                <button class="btn btn-primary" onclick="goStep(5)">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ Step 6: Client Downloads ═══════════════ -->
+    <div class="step" data-step="5">
+        <div class="card">
+            <h2>📱 Generate Client Apps</h2>
+            <p class="subtitle">
+                After setup completes, you can download pre-configured client apps for your users from the
+                <strong>Admin Panel → Client Downloads</strong> section. This step is informational — no action needed now.
+            </p>
+
+            <div style="background: var(--bg); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.6;">
+                    <strong>LAN Clients</strong> — for users on the same network<br>
+                    <strong>External Clients</strong> — for users connecting over the internet<br><br>
+                    Available for <strong>Windows</strong>, <strong>Linux</strong>, and <strong>macOS</strong>.
+                    The admin panel lets you generate a client package with your server URL pre-configured.
+                </p>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-outline" onclick="goStep(4)">← Back</button>
+                <button class="btn btn-primary" onclick="goStep(6)">Review & Finish →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ Step 7: Summary & Launch ═══════════════ -->
+    <div class="step" data-step="6">
+        <div class="card">
+            <h2>✅ Review Your Settings</h2>
+            <p class="subtitle">Here's what we'll configure. Click "Create Server" to finish setup.</p>
+
+            <ul class="summary-list" id="summaryList">
+                <!-- filled by JS -->
+            </ul>
+
+            <div class="btn-row" style="margin-top: 24px;">
+                <button class="btn btn-outline" onclick="goStep(5)">← Back</button>
+                <button class="btn btn-primary" id="finishBtn" onclick="finishSetup()">
+                    Create Server
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ Done Screen ═══════════════ -->
+    <div class="step" data-step="7">
+        <div class="card" style="text-align: center;">
+            <div class="done-check">🎉</div>
+            <h2>Setup Complete!</h2>
+            <p class="subtitle" style="margin-bottom: 28px;">
+                Your server is ready. You're signed in as the administrator.
+            </p>
+            <a href="/admin/settings" class="btn btn-primary" style="display:inline-block; text-decoration:none;">
+                Open Admin Panel →
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+const TOTAL_STEPS = 8;  // 0-7
+let currentStep = 0;
+let networkMode = 'lan';
+const selectedModules = new Set();
+
+/* ── Navigation ─────────────────────────────────────────── */
+
+function goStep(n) {
+    // Build summary on step 6
+    if (n === 6) buildSummary();
+
+    currentStep = n;
+    document.querySelectorAll('.step').forEach(el => {
+        el.classList.toggle('active', parseInt(el.dataset.step) === n);
+    });
+    document.querySelectorAll('.progress-bar .step-dot').forEach((dot, i) => {
+        dot.classList.toggle('done', i < n);
+        dot.classList.toggle('active', i === n);
+    });
+    hideError();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── Module toggling ────────────────────────────────────── */
+
+function toggleModule(el) {
+    const name = el.dataset.module;
+    if (el.classList.contains('always-on')) return;
+    el.classList.toggle('selected');
+    const badge = el.querySelector('.mod-badge');
+    if (el.classList.contains('selected')) {
+        selectedModules.add(name);
+        if (badge) { badge.style.display = 'inline-block'; badge.textContent = 'Enabled'; }
+    } else {
+        selectedModules.delete(name);
+        if (badge) badge.style.display = 'none';
+    }
+}
+
+/* ── Network mode ───────────────────────────────────────── */
+
+function selectNetwork(mode) {
+    networkMode = mode;
+    document.querySelectorAll('#networkCards .radio-card').forEach(c => {
+        c.classList.toggle('selected', c.dataset.mode === mode);
+    });
+    document.getElementById('lanInfo').style.display = mode === 'lan' ? 'block' : 'none';
+    document.getElementById('externalPanel').style.display = mode === 'external' ? 'block' : 'none';
+}
+
+/* ── Validation ─────────────────────────────────────────── */
+
+function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.classList.add('show');
+}
+function hideError() {
+    document.getElementById('errorMsg').classList.remove('show');
+}
+
+function validateAdmin() {
+    const pw = document.getElementById('adminPass').value;
+    const pw2 = document.getElementById('adminPassConfirm').value;
+    const user = document.getElementById('adminUser').value.trim();
+    if (!user) { showError('Username is required.'); return; }
+    if (pw.length < 4) { showError('Password must be at least 4 characters.'); return; }
+    if (pw !== pw2) { showError('Passwords do not match.'); return; }
+    goStep(4);
+}
+
+/* ── Summary ────────────────────────────────────────────── */
+
+function buildSummary() {
+    const items = [
+        ['Server Name', document.getElementById('serverName').value || 'My HOMEPAGE Server'],
+        ['Platform Name', document.getElementById('platformName').value || 'HOMEPAGE'],
+        ['Admin Username', document.getElementById('adminUser').value || 'admin'],
+        ['Enabled Modules', ['Feed', 'Discovery', ...Array.from(selectedModules)].join(', ') || 'Feed, Discovery'],
+        ['Network Mode', networkMode === 'lan' ? 'LAN Only' : 'Internet Accessible'],
+        ['Join Policy', document.getElementById('joinPolicy').value],
+    ];
+    if (networkMode === 'external') {
+        items.push(['External URL', document.getElementById('externalUrl').value || '(not set)']);
+    }
+    const list = document.getElementById('summaryList');
+    list.innerHTML = items.map(([label, value]) =>
+        `<li><span class="summary-label">${label}</span><span class="summary-value">${value}</span></li>`
+    ).join('');
+}
+
+/* ── Finish ─────────────────────────────────────────────── */
+
+async function finishSetup() {
+    const btn = document.getElementById('finishBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Creating…';
+    hideError();
+
+    const payload = {
+        server_name: document.getElementById('serverName').value.trim() || 'My HOMEPAGE Server',
+        server_description: document.getElementById('serverDesc').value.trim(),
+        platform_name: document.getElementById('platformName').value.trim() || 'HOMEPAGE',
+        enabled_modules: Array.from(selectedModules),
+        admin_username: document.getElementById('adminUser').value.trim() || 'admin',
+        admin_display_name: document.getElementById('adminDisplayName').value.trim() || 'Administrator',
+        admin_password: document.getElementById('adminPass').value,
+        network_mode: networkMode,
+        external_url: document.getElementById('externalUrl').value.trim(),
+        join_policy: document.getElementById('joinPolicy').value,
+    };
+
+    try {
+        const res = await fetch('/setup/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+            showError(data.error || data.detail || 'Setup failed.');
+            btn.disabled = false;
+            btn.textContent = 'Create Server';
+            return;
+        }
+
+        // Set auth cookie from token
+        if (data.access_token) {
+            document.cookie = `access_token=${data.access_token}; path=/; max-age=${60*60}; samesite=lax`;
+        }
+
+        // Show done screen
+        goStep(7);
+    } catch (err) {
+        showError('Connection error: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Create Server';
+    }
+}
+</script>
+</body>
+</html>

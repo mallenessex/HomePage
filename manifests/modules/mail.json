@@ -1,0 +1,14 @@
+{
+  "name": "mail",
+  "version": "1",
+  "runtime": "podman-compose",
+  "compose_file": "podman-compose.yml",
+  "services": [],
+  "routes": [
+    {
+      "module_path": "/mail",
+      "upstream": "http://localhost:8001/mail"
+    }
+  ],
+  "install_policy": "manual"
+}
