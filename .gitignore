@@ -19,6 +19,7 @@
 #  that anyone can recreate with `pip install -r requirements.txt`.
 #  __pycache__ and *.pyc are compiled bytecode — Python regenerates
 #  them automatically every time you run the code.
+venv/
 .venv/
 .venv-client/
 .venv-server-build/

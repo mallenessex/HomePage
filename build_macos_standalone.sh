@@ -1,3 +1,56 @@
+#!/usr/bin/env bash
+# ============================================================================
+# HOMEPAGE Client — Standalone macOS Build Script
+#
+# This script is FULLY SELF-CONTAINED.  It embeds all source files needed to
+# build the macOS .app bundle + .dmg installer.  No repo checkout required.
+#
+# Prerequisites (the Mac needs):
+#   - macOS 11+ (Big Sur or later)
+#   - Python 3.10+  (check: python3 --version)
+#     Install via Homebrew if missing:  brew install python@3.12
+#
+# Usage:
+#   chmod +x build_macos_standalone.sh
+#   ./build_macos_standalone.sh
+#
+# Output:
+#   ./dist/HomepageClient-macos.dmg
+#   ./dist/HomepageClient.app/
+# ============================================================================
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORK_DIR="$SCRIPT_DIR/homepage-client-build"
+APP_NAME="HomepageClient"
+DMG_NAME="HomepageClient-macos.dmg"
+
+echo "============================================"
+echo "  HOMEPAGE Client — macOS Standalone Build"
+echo "============================================"
+echo ""
+
+# ── 0. Check Python 3 ─────────────────────────────────────────────────────
+if ! command -v python3 &>/dev/null; then
+    echo "ERROR: python3 not found."
+    echo "Install it with:  brew install python@3.12"
+    exit 1
+fi
+
+PY_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+echo "Found Python $PY_VERSION"
+
+# ── 1. Create clean working directory ──────────────────────────────────────
+echo ""
+echo "==> Setting up working directory: $WORK_DIR"
+rm -rf "$WORK_DIR"
+mkdir -p "$WORK_DIR/dist"
+cd "$WORK_DIR"
+
+# ── 2. Write embedded source files ────────────────────────────────────────
+
+echo "==> Writing client_app.py ..."
+cat << 'HOMEPAGE_CLIENT_APP_PY_EOF' > client_app.py
 """
 HOMEPAGE Client — multi-platform contained client.
 
@@ -418,10 +471,10 @@ def _should_skip_tls_verify(server_url: str) -> bool:
 def _get_tls_verify_param(server_url: str) -> str | bool:
     """Return the `verify` parameter for requests.
 
-    - Private / .local HTTPS  → False  (self-signed, skip)
-    - Public HTTPS + local CA → path to CA cert  (internal CA, verify against it)
-    - Public HTTPS, no CA     → True   (expect a real cert)
-    - HTTP                    → True   (irrelevant, no TLS)
+    - Private / .local HTTPS  -> False  (self-signed, skip)
+    - Public HTTPS + local CA -> path to CA cert  (internal CA, verify against it)
+    - Public HTTPS, no CA     -> True   (expect a real cert)
+    - HTTP                    -> True   (irrelevant, no TLS)
     """
     parsed = urlparse(server_url)
     if parsed.scheme != "https":
@@ -608,7 +661,7 @@ def _set_webview2_privacy_flags() -> None:
         return
 
     privacy_flags = [
-        # ── network-level kill switches ──────────────────────────
+        # -- network-level kill switches --
         "--disable-background-networking",
         "--disable-client-side-phishing-detection",
         "--disable-default-apps",
@@ -633,19 +686,19 @@ def _set_webview2_privacy_flags() -> None:
             "msEdgeOnRampFRE,"
             "msEdgeOnRampImport,"
             "msImplicitSignin",
-        # ── DNS / prediction ─────────────────────────────────────
+        # -- DNS / prediction --
         "--dns-prefetch-disable",
         "--disable-preconnect",
-        # ── metrics & telemetry ──────────────────────────────────
+        # -- metrics & telemetry --
         "--metrics-recording-only",
         "--disable-metrics",
         "--disable-metrics-reporting",
-        # ── miscellaneous hardening ──────────────────────────────
+        # -- miscellaneous hardening --
         "--disable-speech-api",
         "--disable-remote-fonts",
         "--disable-gpu-shader-disk-cache",
         "--autoplay-policy=user-gesture-required",
-        # ── Edge-specific telemetry ──────────────────────────────
+        # -- Edge-specific telemetry --
         "--edge-disable-push-notifications",
         "--disable-reading-from-canvas",
     ]
@@ -669,7 +722,7 @@ def open_contained_browser(server_url: str) -> None:
         (() => {{
           const allowedOrigin = {json.dumps(allowed_origin)};
 
-          /* ── origin enforcement ─────────────────────────────── */
+          /* -- origin enforcement -- */
           function enforceOrigin() {{
             try {{
               if (window.location.origin !== allowedOrigin) {{
@@ -678,7 +731,7 @@ def open_contained_browser(server_url: str) -> None:
             }} catch (_) {{}}
           }}
 
-          /* ── block outbound navigation ──────────────────────── */
+          /* -- block outbound navigation -- */
           window.open = () => null;
           document.addEventListener('click', (e) => {{
             const a = e.target.closest && e.target.closest('a[href]');
@@ -698,7 +751,7 @@ def open_contained_browser(server_url: str) -> None:
           setInterval(enforceOrigin, 500);
           enforceOrigin();
 
-          /* ── neuter APIs that could phone home ──────────────── */
+          /* -- neuter APIs that could phone home -- */
 
           // 1. Beacon API (analytics / tracking pings)
           if (navigator.sendBeacon) {{
@@ -1304,7 +1357,7 @@ class ClientApp:
             self._poll_job = None
 
     def _poll_tick(self) -> None:
-        """Single silent poll iteration – no messageboxes unless approved/rejected."""
+        """Single silent poll iteration -- no messageboxes unless approved/rejected."""
         self._poll_job = None
         try:
             server_url = self._validate_server_url()
@@ -1321,7 +1374,7 @@ class ClientApp:
             data = resp.json()
             if not resp.ok:
                 detail = data.get("detail", "")
-                # Stale request from a previous install — clear silently
+                # Stale request from a previous install -- clear silently
                 if resp.status_code == 403 and "mismatch" in detail.lower():
                     self.request_id.set("")
                     self.request_status.set("not_requested")
@@ -1373,7 +1426,7 @@ class ClientApp:
                 messagebox.showwarning(APP_NAME, "Join request was rejected by the server admin.")
                 return
             else:
-                # Still pending – reschedule
+                # Still pending -- reschedule
                 self._start_poll()
         except Exception:
             # Silently reschedule on network errors
@@ -1487,7 +1540,7 @@ class ClientApp:
             data = resp.json()
             if not resp.ok:
                 detail = data.get("detail", f"HTTP {resp.status_code}")
-                # Stale request from a previous client install — clear it
+                # Stale request from a previous client install -- clear it
                 if resp.status_code == 403 and "mismatch" in detail.lower():
                     self.request_id.set("")
                     self.request_status.set("not_requested")
@@ -1575,3 +1628,148 @@ class ClientApp:
 
 if __name__ == "__main__":
     ClientApp().run()
+HOMEPAGE_CLIENT_APP_PY_EOF
+
+echo "==> Writing requirements-client.txt ..."
+cat << 'HOMEPAGE_REQUIREMENTS_EOF' > requirements-client.txt
+requests>=2.31.0
+pywebview>=5.1
+argon2-cffi>=23.1.0
+pyobjc-framework-WebKit>=10.0
+HOMEPAGE_REQUIREMENTS_EOF
+
+echo "==> Writing HOMEPAGEClient-macos.spec ..."
+cat << 'HOMEPAGE_SPEC_EOF' > HOMEPAGEClient-macos.spec
+# -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
+
+# Collect pywebview's JS helpers and native libs
+_wv_datas = collect_data_files('webview', subdir='js') + collect_data_files('webview', subdir='lib')
+_wv_bins  = collect_dynamic_libs('webview')
+
+a = Analysis(
+    ['client_app.py'],
+    pathex=[],
+    binaries=_wv_bins,
+    datas=_wv_datas,
+    hiddenimports=[
+        'argon2',
+        'webview', 'webview.platforms', 'webview.platforms.cocoa',
+        'objc', 'Foundation', 'WebKit', 'AppKit', 'CoreFoundation',
+        'packaging', 'packaging.version',
+    ],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[
+        'PyQt6', 'PyQt5', 'PySide6', 'PySide2', 'qtpy',
+        'gi', 'gtk',
+    ],
+    noarchive=False,
+    optimize=0,
+)
+
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='HomepageClient',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=True,
+    upx=False,
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=True,
+    upx=False,
+    name='HomepageClient',
+)
+
+app = BUNDLE(
+    coll,
+    name='HomepageClient.app',
+    icon=None,
+    bundle_identifier='com.homepage.client',
+    info_plist={
+        'CFBundleName': 'HOMEPAGE Client',
+        'CFBundleDisplayName': 'HOMEPAGE Client',
+        'CFBundleShortVersionString': '1.0.0',
+        'NSHighResolutionCapable': True,
+    },
+)
+HOMEPAGE_SPEC_EOF
+
+# ── 3. Create venv and install dependencies ───────────────────────────────
+echo ""
+echo "==> Creating Python virtual environment..."
+python3 -m venv .venv-client
+source .venv-client/bin/activate
+python -m pip install --upgrade pip
+
+echo ""
+echo "==> Installing dependencies (this may take a few minutes)..."
+pip install -r requirements-client.txt
+pip install pyinstaller
+
+# ── 4. Run PyInstaller ─────────────────────────────────────────────────────
+echo ""
+echo "==> Running PyInstaller..."
+pyinstaller HOMEPAGEClient-macos.spec --noconfirm
+echo "==> PyInstaller done."
+
+# ── 5. Create DMG ─────────────────────────────────────────────────────────
+echo ""
+echo "==> Creating DMG..."
+DMG_DIR="$WORK_DIR/build/dmg-stage"
+rm -rf "$DMG_DIR"
+mkdir -p "$DMG_DIR"
+
+# Copy the .app bundle
+cp -a "dist/$APP_NAME.app" "$DMG_DIR/"
+
+# Create a symlink to /Applications for drag-and-drop install
+ln -s /Applications "$DMG_DIR/Applications"
+
+# Build the DMG
+hdiutil create -volname "$APP_NAME" \
+    -srcfolder "$DMG_DIR" \
+    -ov -format UDZO \
+    "dist/$DMG_NAME"
+
+# ── 6. Copy outputs to the script's directory ─────────────────────────────
+echo ""
+echo "==> Copying outputs..."
+mkdir -p "$SCRIPT_DIR/dist"
+cp "dist/$DMG_NAME" "$SCRIPT_DIR/dist/"
+cp -a "dist/$APP_NAME.app" "$SCRIPT_DIR/dist/"
+
+echo ""
+echo "============================================"
+echo "  BUILD COMPLETE"
+echo "============================================"
+echo ""
+echo "Outputs:"
+echo "  $SCRIPT_DIR/dist/$DMG_NAME"
+echo "  $SCRIPT_DIR/dist/$APP_NAME.app/"
+echo ""
+ls -lh "$SCRIPT_DIR/dist/$DMG_NAME"
+echo ""
+echo "Send the .dmg file back to the server admin."
+echo "They should place it at: dist/HomepageClient-macos.dmg"
+echo ""
+echo "You can delete the build directory if you like:"
+echo "  rm -rf $WORK_DIR"

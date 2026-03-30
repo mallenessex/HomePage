@@ -44,6 +44,7 @@ class PostBase(BaseModel):
     body: str
     media_path: Optional[str] = None
     media_type: Optional[str] = None
+    include_in_family_photos: bool = False
     mood: Optional[str] = None
     visibility: str = "public"
 

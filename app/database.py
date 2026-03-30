@@ -73,6 +73,49 @@ async def init_db():
             # Keep startup tolerant for pre-chat schema variants.
             pass
         try:
+            post_rows = await conn.execute(text("PRAGMA table_info(posts)"))
+            post_columns = {row[1] for row in post_rows.fetchall()}
+            if "include_in_family_photos" not in post_columns:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE posts ADD COLUMN include_in_family_photos INTEGER DEFAULT 0 NOT NULL"
+                    )
+                )
+            await conn.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS runtime_migrations ("
+                    "name VARCHAR PRIMARY KEY, "
+                    "applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL"
+                    ")"
+                )
+            )
+            migration_key = "2026-03-11-family-photos-opt-in-default"
+            migration_row = await conn.execute(
+                text("SELECT name FROM runtime_migrations WHERE name = :name"),
+                {"name": migration_key},
+            )
+            if migration_row.first() is None:
+                await conn.execute(
+                    text(
+                        "UPDATE posts SET include_in_family_photos = 0 "
+                        "WHERE include_in_family_photos = 1 OR include_in_family_photos IS NULL"
+                    )
+                )
+                await conn.execute(
+                    text("INSERT INTO runtime_migrations(name) VALUES (:name)"),
+                    {"name": migration_key},
+                )
+            else:
+                await conn.execute(
+                    text(
+                        "UPDATE posts SET include_in_family_photos = 0 "
+                        "WHERE include_in_family_photos IS NULL"
+                    )
+                )
+        except Exception:
+            # Keep startup tolerant for older post schema variants.
+            pass
+        try:
             lobby_rows = await conn.execute(text("PRAGMA table_info(game_lobbies)"))
             lobby_columns = {row[1] for row in lobby_rows.fetchall()}
             if "play_mode" not in lobby_columns:

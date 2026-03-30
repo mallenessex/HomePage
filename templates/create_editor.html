@@ -117,6 +117,14 @@
 .ce-props-body label{font-size:11px;color:#888;display:block;margin:8px 0 3px}
 .ce-props-body input,.ce-props-body select,.ce-props-body textarea{width:100%;background:#222244;border:1px solid #444;color:#ddd;font-size:12px;padding:5px 8px;border-radius:3px;font-family:inherit;box-sizing:border-box}
 .ce-props-body textarea{min-height:60px;font-family:monospace;font-size:11px;resize:vertical}
+.ce-color-control{display:flex;align-items:center;gap:8px}
+.ce-color-control input[type="text"]{flex:1}
+.ce-props-body .ce-color-control input[type="color"]{width:42px;min-width:42px;height:34px;padding:2px;cursor:pointer}
+.ce-upload-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+.ce-upload-row input[type="file"]{flex:1;padding:4px}
+.ce-upload-btn{padding:6px 10px;white-space:nowrap}
+.ce-upload-status{min-height:14px;margin-top:4px;font-size:11px;color:#777}
+.ce-page-props-btn{margin-top:10px;width:100%}
 
 /* Code editors */
 .ce-code-panel{display:flex;gap:8px;position:absolute;top:0;left:0;right:0;bottom:0;background:#1a1a2e;padding:10px;z-index:10}
@@ -141,6 +149,7 @@ var canvasEl = document.getElementById("ceCanvas");
 var selectedEl = null;
 var dragSrcEl = null;
 var ceIdCounter = 0;
+var imagePlaceholderSrc = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23ddd' width='300' height='200'/><text x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='14'>Set URL or upload image</text></svg>";
 
 // ── Load existing page JSON into canvas ──
 {% if page and page.page_json %}
@@ -172,9 +181,9 @@ function addElement(tag) {
         wrapper.setAttribute("data-ce", id);
         wrapper.setAttribute("data-tag", "img");
         var img = document.createElement("img");
-        img.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'><rect fill='%23ddd' width='300' height='200'/><text x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='14'>Click to set image URL</text></svg>";
         img.style.maxWidth = "100%";
         img.style.display = "block";
+        setEditorImageSource(img, "");
         wrapper.appendChild(img);
     } else if (tag === "hr") {
         wrapper = document.createElement("hr");
@@ -250,9 +259,9 @@ function addElementFromData(data) {
     } else if (tag === "img") {
         el = document.createElement("div");
         var img = document.createElement("img");
-        img.src = data.src || "";
         img.style.maxWidth = "100%";
         img.style.display = "block";
+        setEditorImageSource(img, data.src || "");
         if (data.alt) img.alt = data.alt;
         el.appendChild(img);
     } else if (tag === "hr") {
@@ -390,7 +399,53 @@ function removeDropIndicators() {
 
 // ── Properties panel ──
 function clearProps() {
-    document.getElementById("propsContent").innerHTML = '<p class="ce-props-hint">Select an element on the canvas.</p>';
+    document.getElementById("propsContent").innerHTML =
+        '<p class="ce-props-hint">Select an element on the canvas.</p>' +
+        '<button type="button" class="ce-btn ce-btn-ghost ce-page-props-btn" id="pageStylesBtn">Page Styles</button>';
+    var pageBtn = document.getElementById("pageStylesBtn");
+    if (pageBtn) pageBtn.addEventListener("click", function(){ showPageProps(); });
+}
+
+function buildColorField(label, textId, pickerId, value, fallback) {
+    var hex = normaliseHexColor(value, fallback || "#000000");
+    return '<label>' + label + '</label>' +
+        '<div class="ce-color-control">' +
+            '<input type="text" id="' + textId + '" value="' + hex + '" placeholder="#000000">' +
+            '<input type="color" id="' + pickerId + '" value="' + hex + '">' +
+        '</div>';
+}
+
+function buildImageField(label, urlId, fileId, buttonId, statusId, value) {
+    return '<label>' + label + '</label>' +
+        '<input id="' + urlId + '" value="' + esc(value) + '" placeholder="https://example.com/image.png or /media/file.png">' +
+        '<div class="ce-upload-row">' +
+            '<input type="file" id="' + fileId + '" accept="image/*">' +
+            '<button type="button" class="ce-btn ce-btn-ghost ce-upload-btn" id="' + buttonId + '">Upload</button>' +
+        '</div>' +
+        '<div class="ce-upload-status" id="' + statusId + '"></div>';
+}
+
+function showPageProps(focusField) {
+    deselectAll();
+    var bgColor = normaliseHexColor(canvasEl.style.backgroundColor, "#ffffff");
+    var bgImage = extractBackgroundUrl(canvasEl.style.backgroundImage);
+    var html = '<label>Type</label><input value="page" disabled>';
+    html += buildColorField("Background Color", "pageBgColorText", "pageBgColorPicker", bgColor, "#ffffff");
+    html += buildImageField("Background Image URL", "pageBgImage", "pageBgImageUpload", "pageBgImageUploadBtn", "pageBgImageUploadStatus", bgImage);
+    html += '<button class="ce-btn ce-btn-ghost" style="margin-top:12px;width:100%" id="pagePropApply">Apply</button>';
+    document.getElementById("propsContent").innerHTML = html;
+
+    bindColorControl("pageBgColorText", "pageBgColorPicker");
+    bindImageUpload("pageBgImage", "pageBgImageUpload", "pageBgImageUploadBtn", "pageBgImageUploadStatus", function(url){
+        setCanvasBackgroundImage(url);
+    });
+    document.getElementById("pagePropApply").addEventListener("click", applyPageProps);
+
+    if (focusField === "image") {
+        document.getElementById("pageBgImage").focus();
+    } else if (focusField === "color") {
+        document.getElementById("pageBgColorText").focus();
+    }
 }
 
 function showProps(el) {
@@ -408,12 +463,13 @@ function showProps(el) {
     // Tag-specific
     if (tag === "img") {
         var img = el.querySelector("img");
-        html += '<label>Image URL</label><input id="propSrc" value="'+esc(img?img.src:"")+'">';
+        var imgSrc = img && img.getAttribute("data-ce-placeholder") === "1" ? "" : ((img && (img.getAttribute("src") || img.src)) || "");
+        html += buildImageField("Image URL", "propSrc", "propSrcUpload", "propSrcUploadBtn", "propSrcUploadStatus", imgSrc);
         html += '<label>Alt Text</label><input id="propAlt" value="'+esc(img?img.alt:"")+'">';
     } else if (tag === "a") {
         var a = el.querySelector("a");
-        html += '<label>Link URL</label><input id="propHref" value="'+esc(a?a.href:"")+'">';
-        html += '<label>Link Color</label><input type="color" id="propLinkColor" value="'+(a?rgbToHex(a.style.color):"#4f46e5")+'">';
+        html += '<label>Link URL</label><input id="propHref" value="'+esc(a ? (a.getAttribute("href") || a.href) : "")+'">';
+        html += buildColorField("Link Color", "propLinkColorText", "propLinkColorPicker", a ? a.style.color : "", "#4f46e5");
     } else if (tag === "spacer") {
         var curH = parseInt(el.style.height) || 40;
         html += '<label>Height (px)</label><input type="number" id="propSpacerH" value="'+curH+'" min="10" max="400">';
@@ -422,11 +478,18 @@ function showProps(el) {
     // Font size
     html += '<label>Font Size</label><input id="propFontSize" value="'+esc(el.style.fontSize || "")+'" placeholder="e.g. 18px">';
     // Color
-    html += '<label>Text Color</label><input type="color" id="propColor" value="'+(rgbToHex(el.style.color) || "#000000")+'">';
+    html += buildColorField("Text Color", "propColorText", "propColorPicker", el.style.color || "", "#000000");
 
     html += '<button class="ce-btn ce-btn-ghost" style="margin-top:12px;width:100%" id="propApply">Apply</button>';
     document.getElementById("propsContent").innerHTML = html;
 
+    bindColorControl("propColorText", "propColorPicker");
+    if (tag === "a") {
+        bindColorControl("propLinkColorText", "propLinkColorPicker");
+    }
+    if (tag === "img") {
+        bindImageUpload("propSrc", "propSrcUpload", "propSrcUploadBtn", "propSrcUploadStatus");
+    }
     document.getElementById("propApply").addEventListener("click", function(){ applyProps(el); });
 }
 
@@ -442,14 +505,16 @@ function applyProps(el) {
     if (tag === "img") {
         var img = el.querySelector("img");
         if (img) {
-            img.src = (document.getElementById("propSrc")||{}).value||"";
+            setEditorImageSource(img, (document.getElementById("propSrc")||{}).value||"");
             img.alt = (document.getElementById("propAlt")||{}).value||"";
         }
     } else if (tag === "a") {
         var a = el.querySelector("a");
         if (a) {
             a.href = (document.getElementById("propHref")||{}).value||"#";
-            a.style.color = (document.getElementById("propLinkColor")||{}).value||"";
+            var linkColor = getColorControlValue("propLinkColorText");
+            if (linkColor === null) return;
+            a.style.color = linkColor;
         }
     } else if (tag === "spacer") {
         el.style.height = ((document.getElementById("propSpacerH")||{}).value||40)+"px";
@@ -457,11 +522,150 @@ function applyProps(el) {
 
     var fs = (document.getElementById("propFontSize")||{}).value;
     if (fs) el.style.fontSize = fs;
-    var fc = (document.getElementById("propColor")||{}).value;
-    if (fc) el.style.color = fc;
+    var fc = getColorControlValue("propColorText");
+    if (fc === null) return;
+    el.style.color = fc;
+}
+
+function applyPageProps() {
+    var bgColor = getColorControlValue("pageBgColorText");
+    if (bgColor === null) return;
+    canvasEl.style.backgroundColor = bgColor;
+    setCanvasBackgroundImage((document.getElementById("pageBgImage")||{}).value||"");
 }
 
 function esc(s) { return (s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+
+function parseHexColor(value) {
+    var raw = (value || "").trim();
+    if (!raw) return "";
+    if (raw.charAt(0) !== "#" && /^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(raw)) raw = "#" + raw;
+    if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(raw)) return null;
+    if (raw.length === 4) {
+        raw = "#" + raw.charAt(1) + raw.charAt(1) + raw.charAt(2) + raw.charAt(2) + raw.charAt(3) + raw.charAt(3);
+    }
+    return raw.toLowerCase();
+}
+
+function normaliseHexColor(value, fallback) {
+    var parsed = parseHexColor(value);
+    if (parsed !== null) return parsed || (fallback || "#000000");
+    if ((value || "").trim().toLowerCase().indexOf("rgb") === 0) return rgbToHex(value);
+    return fallback || "#000000";
+}
+
+function getColorControlValue(textId) {
+    var input = document.getElementById(textId);
+    if (!input) return "";
+    var raw = (input.value || "").trim();
+    if (!raw) return "";
+    var parsed = parseHexColor(raw);
+    if (!parsed) {
+        alert("Use a valid hex color like #4f46e5.");
+        input.focus();
+        return null;
+    }
+    input.value = parsed;
+    return parsed;
+}
+
+function bindColorControl(textId, pickerId) {
+    var textInput = document.getElementById(textId);
+    var pickerInput = document.getElementById(pickerId);
+    if (!textInput || !pickerInput) return;
+
+    pickerInput.addEventListener("input", function(){
+        textInput.value = pickerInput.value.toLowerCase();
+    });
+    textInput.addEventListener("input", function(){
+        var parsed = parseHexColor(textInput.value);
+        if (parsed) pickerInput.value = parsed;
+    });
+    textInput.addEventListener("blur", function(){
+        var parsed = parseHexColor(textInput.value);
+        if (parsed) {
+            textInput.value = parsed;
+            pickerInput.value = parsed;
+        }
+    });
+}
+
+function bindImageUpload(urlId, fileId, buttonId, statusId, onUploaded) {
+    var urlInput = document.getElementById(urlId);
+    var fileInput = document.getElementById(fileId);
+    var uploadBtn = document.getElementById(buttonId);
+    var statusEl = document.getElementById(statusId);
+    if (!urlInput || !fileInput || !uploadBtn) return;
+
+    uploadBtn.addEventListener("click", function(){
+        var file = fileInput.files && fileInput.files[0];
+        var originalLabel = uploadBtn.textContent;
+        if (!file) {
+            if (statusEl) statusEl.textContent = "Choose an image first.";
+            return;
+        }
+
+        if (statusEl) statusEl.textContent = "Uploading...";
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = "Uploading...";
+
+        var formData = new FormData();
+        formData.append("file", file);
+
+        fetch("/api/media/upload", {
+            method: "POST",
+            body: formData,
+            credentials: "same-origin"
+        }).then(function(response){
+            return response.json().catch(function(){ return {}; }).then(function(data){
+                if (!response.ok) {
+                    throw new Error(data.detail || "Upload failed.");
+                }
+                return data;
+            });
+        }).then(function(data){
+            urlInput.value = data.url || "";
+            fileInput.value = "";
+            if (statusEl) statusEl.textContent = "Uploaded.";
+            if (typeof onUploaded === "function") onUploaded(data.url || "", data);
+        }).catch(function(err){
+            if (statusEl) statusEl.textContent = err.message || "Upload failed.";
+        }).then(function(){
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = originalLabel;
+        });
+    });
+}
+
+function extractBackgroundUrl(value) {
+    var raw = (value || "").trim();
+    if (!raw) return "";
+    var match = raw.match(/^url\((['"]?)(.*?)\1\)$/i);
+    return match ? match[2] : raw;
+}
+
+function setCanvasBackgroundImage(value) {
+    var raw = (value || "").trim();
+    if (!raw) {
+        canvasEl.style.backgroundImage = "";
+        canvasEl.style.backgroundSize = "";
+        return;
+    }
+    var safeUrl = raw.replace(/"/g, "%22").replace(/'/g, "%27");
+    canvasEl.style.backgroundImage = 'url("' + safeUrl + '")';
+    canvasEl.style.backgroundSize = "cover";
+}
+
+function setEditorImageSource(img, value) {
+    var raw = (value || "").trim();
+    if (!raw) {
+        img.src = imagePlaceholderSrc;
+        img.setAttribute("data-ce-placeholder", "1");
+        return;
+    }
+    img.src = raw;
+    img.removeAttribute("data-ce-placeholder");
+}
 
 function rgbToHex(rgb) {
     if (!rgb) return "#000000";
@@ -478,17 +682,10 @@ document.querySelectorAll(".ce-tool[data-tag]").forEach(function(btn){
 
 // Background colour
 document.getElementById("btnBgColor").addEventListener("click", function(){
-    var c = prompt("Background color (hex or CSS):", canvasEl.style.backgroundColor || "#ffffff");
-    if (c !== null) canvasEl.style.backgroundColor = c;
+    showPageProps("color");
 });
 document.getElementById("btnBgImage").addEventListener("click", function(){
-    var url = prompt("Background image URL:", "");
-    if (url !== null && url.trim()) {
-        canvasEl.style.backgroundImage = "url('"+url.trim()+"')";
-        canvasEl.style.backgroundSize = "cover";
-    } else if (url !== null) {
-        canvasEl.style.backgroundImage = "";
-    }
+    showPageProps("image");
 });
 
 // ── Code view toggle ──
@@ -532,6 +729,7 @@ function getCanvasHTML() {
     var clone = canvasEl.cloneNode(true);
     // Remove editor UI artifacts
     clone.querySelectorAll(".ce-drag-handle,.ce-del-handle,.ce-drop-indicator").forEach(function(h){ h.remove(); });
+    clone.querySelectorAll("[data-ce-placeholder]").forEach(function(img){ img.removeAttribute("data-ce-placeholder"); });
     clone.querySelectorAll("[data-ce]").forEach(function(el){
         el.removeAttribute("data-ce");
         el.removeAttribute("contenteditable");
@@ -595,11 +793,11 @@ function buildPageJSON() {
 
         if (tag === "img") {
             var img = el.querySelector("img");
-            obj.src = img ? img.src : "";
+            obj.src = img && img.getAttribute("data-ce-placeholder") === "1" ? "" : (img ? (img.getAttribute("src") || img.src) : "");
             obj.alt = img ? img.alt : "";
         } else if (tag === "a") {
             var a = el.querySelector("a");
-            obj.href = a ? a.href : "#";
+            obj.href = a ? (a.getAttribute("href") || a.href) : "#";
             obj.text = a ? a.textContent : "";
             obj.linkColor = a ? a.style.color : "";
         } else if (tag === "ul" || tag === "ol") {
@@ -683,6 +881,8 @@ document.addEventListener("keydown", function(e){
         clearProps();
     }
 });
+
+clearProps();
 
 })();
 </script>

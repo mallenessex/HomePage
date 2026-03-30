@@ -75,6 +75,7 @@ class Post(Base):
     
     media_path = Column(String, nullable=True)
     media_type = Column(String, nullable=True) # image/png, audio/mp3
+    include_in_family_photos = Column(Boolean, default=False, nullable=False)
     
     # Mood/Music (optional fun fields)
     mood = Column(String, nullable=True)

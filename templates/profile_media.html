@@ -28,50 +28,54 @@
     </div>
 
     <div class="profile-tabs">
-        <a href="/users/{{ profile_user.username }}" class="active">Posts</a>
-        <a href="/users/{{ profile_user.username }}/media">Media</a>
+        <a href="/users/{{ profile_user.username }}">Posts</a>
+        <a href="/users/{{ profile_user.username }}/media" class="active">Media</a>
         <a href="/create/site/{{ profile_user.username }}">Pages</a>
         <a href="#">Followers</a>
     </div>
 
-    <div class="timeline">
-        {% for post in posts %}
-        <article class="post card">
-            <div class="post-header">
-                <div class="user-avatar">
-                    {% if profile_user.avatar_url %}
-                    <img src="{{ profile_user.avatar_url }}" alt="{{ profile_user.username }}">
-                    {% else %}
-                    {{ profile_user.username[0].upper() }}
-                    {% endif %}
-                </div>
-                <div class="post-meta">
-                    <span class="user-name">{{ profile_user.display_name or profile_user.username }}</span>
-                    <span class="post-date">{{ post.created_at.strftime('%b %d, %H:%M') }}</span>
-                </div>
-            </div>
-
-            <div class="post-content">
-                {{ post.body }}
-            </div>
-
-            {% if post.media_path %}
-            <div class="post-media" style="margin-top: 15px;">
-                {% if post.media_type and post.media_type.startswith('image/') %}
-                <img src="/media/{{ post.media_path }}" alt="Post attachment" style="max-width: 100%; border-radius: 12px; display: block; border: 1px solid var(--border);">
-                {% else %}
-                <a href="/media/{{ post.media_path }}" class="media-link">View Attachment</a>
+    <div class="media-grid">
+        {% for post in media_posts %}
+        {% set media_url = '/media/' ~ post.media_path %}
+        <article class="media-card card">
+            <div class="media-meta">
+                <span class="post-date">{{ post.created_at.strftime('%b %d, %H:%M') if post.created_at else '' }}</span>
+                {% if is_owner %}
+                <span class="family-status {{ 'on' if post.include_in_family_photos else 'off' }}">
+                    {{ 'Included in Family Photos' if post.include_in_family_photos else 'Not Included in Family Photos' }}
+                </span>
                 {% endif %}
             </div>
+
+            <div class="media-preview">
+                {% if post.media_type and post.media_type.startswith('image/') %}
+                <a href="{{ media_url }}" target="_blank" rel="noopener">
+                    <img src="{{ media_url }}" alt="Media by {{ profile_user.username }}">
+                </a>
+                {% elif post.media_type and post.media_type.startswith('audio/') %}
+                <audio controls preload="metadata" src="{{ media_url }}"></audio>
+                {% else %}
+                <a href="{{ media_url }}" target="_blank" rel="noopener" class="btn-outline">Open Attachment</a>
+                {% endif %}
+            </div>
+
+            {% if post.body %}
+            <div class="media-caption">{{ post.body }}</div>
             {% endif %}
 
-            <div class="post-footer">
-                <div class="signature">Signed: {{ post.signature[:12] }}...</div>
-            </div>
+            {% if is_owner %}
+            <form method="POST" action="/users/posts/{{ post.id }}/family-photos-toggle" class="family-toggle-form">
+                <input type="hidden" name="include_in_family_photos" value="{{ '0' if post.include_in_family_photos else '1' }}">
+                <input type="hidden" name="redirect_to" value="{{ request.url.path }}">
+                <button type="submit" class="btn-outline">
+                    {{ 'Remove from Family Photos' if post.include_in_family_photos else 'Include in Family Photos' }}
+                </button>
+            </form>
+            {% endif %}
         </article>
         {% else %}
         <div class="empty-state card">
-            <p>This user hasn't posted anything yet.</p>
+            <p>This user has not posted any media yet.</p>
         </div>
         {% endfor %}
     </div>
@@ -84,7 +88,6 @@
 {% endif %}
 
 <style>
-    /* Profile-specific layout fixes */
     .profile-container {
         margin-top: -40px;
     }
@@ -173,18 +176,82 @@
         color: var(--primary);
         border-bottom-color: var(--primary);
     }
-    
-    .timeline .post.card {
-        margin-bottom: 20px;
+
+    .media-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 16px;
     }
 
-    /* Retro Override for Profile */
-    .theme-retro .cover-photo { 
-        background: #000080; 
-        height: 40px;
+    .media-card {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
     }
-    .theme-retro .profile-avatar-large {
-        border-width: 2px;
+
+    .media-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .family-status {
+        font-size: 0.75rem;
+        border-radius: 999px;
+        padding: 4px 8px;
+        border: 1px solid var(--border);
+        white-space: nowrap;
+    }
+
+    .family-status.on {
+        background: #ecfdf5;
+        color: #065f46;
+        border-color: #86efac;
+    }
+
+    .family-status.off {
+        background: #fef2f2;
+        color: #991b1b;
+        border-color: #fecaca;
+    }
+
+    .media-preview {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        background: var(--bg);
+    }
+
+    .media-preview img {
+        width: 100%;
+        border-radius: 8px;
+        display: block;
+        object-fit: cover;
+        max-height: 260px;
+    }
+
+    .media-preview audio {
+        width: 100%;
+    }
+
+    .media-caption {
+        color: var(--text);
+        font-size: 0.95rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+    }
+
+    .family-toggle-form {
+        margin-top: auto;
+    }
+
+    .family-toggle-form .btn-outline {
+        width: 100%;
+    }
+
+    .empty-state.card {
+        grid-column: 1 / -1;
     }
 </style>
 {% endblock %}

@@ -148,6 +148,12 @@ async def sync_google_placeholder(request: Request, current_user: models.User = 
 
 @router.get("/sync/google/start")
 async def sync_google_start(request: Request, current_user: models.User = Depends(auth.get_current_user)):
+    # ── Privacy gate: Google Calendar sync contacts external Google servers ──
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Google Calendar sync is admin-only because it connects to external Google servers.",
+        )
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="Google credentials not configured in .env")
         

@@ -47,6 +47,7 @@ GAME_TYPE_DEFAULT_TAGS: dict[str, tuple[str, str]] = {
     "civic_chess": ("multiplayer", "board_strategy"),
     "chess": ("multiplayer", "board_strategy"),
     "family_crossword": ("multiplayer", "word_puzzle"),
+    "guess_who": ("multiplayer", "party"),
 }
 
 GENRE_ALIASES = {
@@ -59,6 +60,177 @@ GENRE_ALIASES = {
     "wordgame": "word_puzzle",
     "word_game": "word_puzzle",
 }
+
+GUESS_WHO_STOCK_CARDS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "ada",
+        "name": "Ada",
+        "avatar_url": None,
+        "palette": {"bg": "#fff1f2", "accent": "#fb7185", "skin": "#f2c6a0", "hair": "#4b362d", "shirt": "#7c3aed"},
+        "traits": {"glasses": False, "hat": False, "facial_hair": False, "earrings": True, "smile": True, "hair_color": "brown", "hair_style": "long", "shirt_color": "purple"},
+    },
+    {
+        "id": "beck",
+        "name": "Beck",
+        "avatar_url": None,
+        "palette": {"bg": "#eff6ff", "accent": "#60a5fa", "skin": "#f0c7a8", "hair": "#eab308", "shirt": "#2563eb"},
+        "traits": {"glasses": True, "hat": False, "facial_hair": False, "earrings": False, "smile": False, "hair_color": "blonde", "hair_style": "short", "shirt_color": "blue"},
+    },
+    {
+        "id": "cora",
+        "name": "Cora",
+        "avatar_url": None,
+        "palette": {"bg": "#f0fdf4", "accent": "#34d399", "skin": "#d7a98c", "hair": "#b45309", "shirt": "#16a34a"},
+        "traits": {"glasses": False, "hat": False, "facial_hair": False, "earrings": True, "smile": True, "hair_color": "red", "hair_style": "curly", "shirt_color": "green"},
+    },
+    {
+        "id": "dane",
+        "name": "Dane",
+        "avatar_url": None,
+        "palette": {"bg": "#fefce8", "accent": "#facc15", "skin": "#d5a181", "hair": "#111827", "shirt": "#d97706"},
+        "traits": {"glasses": False, "hat": True, "facial_hair": True, "earrings": False, "smile": False, "hair_color": "black", "hair_style": "bald", "shirt_color": "yellow"},
+    },
+    {
+        "id": "esme",
+        "name": "Esme",
+        "avatar_url": None,
+        "palette": {"bg": "#faf5ff", "accent": "#c084fc", "skin": "#f1cfb3", "hair": "#1f2937", "shirt": "#8b5cf6"},
+        "traits": {"glasses": True, "hat": False, "facial_hair": False, "earrings": False, "smile": True, "hair_color": "black", "hair_style": "long", "shirt_color": "purple"},
+    },
+    {
+        "id": "finn",
+        "name": "Finn",
+        "avatar_url": None,
+        "palette": {"bg": "#f8fafc", "accent": "#94a3b8", "skin": "#efc2a2", "hair": "#6b4f3b", "shirt": "#0f766e"},
+        "traits": {"glasses": False, "hat": False, "facial_hair": True, "earrings": False, "smile": True, "hair_color": "brown", "hair_style": "short", "shirt_color": "blue"},
+    },
+    {
+        "id": "gia",
+        "name": "Gia",
+        "avatar_url": None,
+        "palette": {"bg": "#fff7ed", "accent": "#fb923c", "skin": "#e3b38e", "hair": "#f2c94c", "shirt": "#dc2626"},
+        "traits": {"glasses": False, "hat": True, "facial_hair": False, "earrings": True, "smile": True, "hair_color": "blonde", "hair_style": "long", "shirt_color": "red"},
+    },
+    {
+        "id": "hugo",
+        "name": "Hugo",
+        "avatar_url": None,
+        "palette": {"bg": "#ecfeff", "accent": "#22d3ee", "skin": "#9f6d4d", "hair": "#111827", "shirt": "#15803d"},
+        "traits": {"glasses": True, "hat": False, "facial_hair": True, "earrings": False, "smile": False, "hair_color": "black", "hair_style": "curly", "shirt_color": "green"},
+    },
+    {
+        "id": "iris",
+        "name": "Iris",
+        "avatar_url": None,
+        "palette": {"bg": "#fff1f2", "accent": "#f472b6", "skin": "#f2c6a5", "hair": "#c2410c", "shirt": "#f97316"},
+        "traits": {"glasses": False, "hat": False, "facial_hair": False, "earrings": True, "smile": False, "hair_color": "red", "hair_style": "short", "shirt_color": "orange"},
+    },
+    {
+        "id": "jules",
+        "name": "Jules",
+        "avatar_url": None,
+        "palette": {"bg": "#eef2ff", "accent": "#818cf8", "skin": "#dcb18d", "hair": "#9ca3af", "shirt": "#7c3aed"},
+        "traits": {"glasses": True, "hat": False, "facial_hair": False, "earrings": False, "smile": True, "hair_color": "gray", "hair_style": "bald", "shirt_color": "purple"},
+    },
+    {
+        "id": "kian",
+        "name": "Kian",
+        "avatar_url": None,
+        "palette": {"bg": "#f0fdf4", "accent": "#4ade80", "skin": "#d9aa86", "hair": "#111827", "shirt": "#16a34a"},
+        "traits": {"glasses": False, "hat": False, "facial_hair": False, "earrings": False, "smile": True, "hair_color": "black", "hair_style": "short", "shirt_color": "green"},
+    },
+    {
+        "id": "lena",
+        "name": "Lena",
+        "avatar_url": None,
+        "palette": {"bg": "#eff6ff", "accent": "#38bdf8", "skin": "#f3cbb2", "hair": "#94a3b8", "shirt": "#2563eb"},
+        "traits": {"glasses": True, "hat": False, "facial_hair": False, "earrings": True, "smile": True, "hair_color": "gray", "hair_style": "long", "shirt_color": "blue"},
+    },
+    {
+        "id": "milo",
+        "name": "Milo",
+        "avatar_url": None,
+        "palette": {"bg": "#fff7ed", "accent": "#fdba74", "skin": "#efbf9a", "hair": "#6b4f3b", "shirt": "#ea580c"},
+        "traits": {"glasses": False, "hat": True, "facial_hair": True, "earrings": False, "smile": True, "hair_color": "brown", "hair_style": "curly", "shirt_color": "orange"},
+    },
+    {
+        "id": "nora",
+        "name": "Nora",
+        "avatar_url": None,
+        "palette": {"bg": "#fefce8", "accent": "#facc15", "skin": "#f1ccaf", "hair": "#facc15", "shirt": "#ca8a04"},
+        "traits": {"glasses": False, "hat": False, "facial_hair": False, "earrings": False, "smile": True, "hair_color": "blonde", "hair_style": "short", "shirt_color": "yellow"},
+    },
+    {
+        "id": "omar",
+        "name": "Omar",
+        "avatar_url": None,
+        "palette": {"bg": "#fff1f2", "accent": "#fb7185", "skin": "#8e5f43", "hair": "#111827", "shirt": "#dc2626"},
+        "traits": {"glasses": False, "hat": False, "facial_hair": True, "earrings": False, "smile": False, "hair_color": "black", "hair_style": "bald", "shirt_color": "red"},
+    },
+    {
+        "id": "pia",
+        "name": "Pia",
+        "avatar_url": None,
+        "palette": {"bg": "#faf5ff", "accent": "#d8b4fe", "skin": "#d5a181", "hair": "#9ca3af", "shirt": "#9333ea"},
+        "traits": {"glasses": False, "hat": False, "facial_hair": False, "earrings": True, "smile": True, "hair_color": "gray", "hair_style": "curly", "shirt_color": "purple"},
+    },
+    {
+        "id": "quinn",
+        "name": "Quinn",
+        "avatar_url": None,
+        "palette": {"bg": "#eff6ff", "accent": "#60a5fa", "skin": "#c98f69", "hair": "#5a3f2a", "shirt": "#2563eb"},
+        "traits": {"glasses": True, "hat": False, "facial_hair": False, "earrings": False, "smile": False, "hair_color": "brown", "hair_style": "short", "shirt_color": "blue"},
+    },
+    {
+        "id": "rosa",
+        "name": "Rosa",
+        "avatar_url": None,
+        "palette": {"bg": "#f0fdf4", "accent": "#34d399", "skin": "#f1ceb4", "hair": "#c2410c", "shirt": "#16a34a"},
+        "traits": {"glasses": False, "hat": True, "facial_hair": False, "earrings": True, "smile": True, "hair_color": "red", "hair_style": "long", "shirt_color": "green"},
+    },
+    {
+        "id": "seth",
+        "name": "Seth",
+        "avatar_url": None,
+        "palette": {"bg": "#fefce8", "accent": "#fde047", "skin": "#e0ae8a", "hair": "#9ca3af", "shirt": "#ca8a04"},
+        "traits": {"glasses": False, "hat": False, "facial_hair": True, "earrings": False, "smile": False, "hair_color": "gray", "hair_style": "short", "shirt_color": "yellow"},
+    },
+    {
+        "id": "tala",
+        "name": "Tala",
+        "avatar_url": None,
+        "palette": {"bg": "#fff1f2", "accent": "#fda4af", "skin": "#a37050", "hair": "#facc15", "shirt": "#dc2626"},
+        "traits": {"glasses": True, "hat": False, "facial_hair": False, "earrings": True, "smile": True, "hair_color": "blonde", "hair_style": "curly", "shirt_color": "red"},
+    },
+    {
+        "id": "uma",
+        "name": "Uma",
+        "avatar_url": None,
+        "palette": {"bg": "#fff7ed", "accent": "#fdba74", "skin": "#cf976f", "hair": "#6b4f3b", "shirt": "#f97316"},
+        "traits": {"glasses": False, "hat": True, "facial_hair": False, "earrings": False, "smile": True, "hair_color": "brown", "hair_style": "bald", "shirt_color": "orange"},
+    },
+    {
+        "id": "vera",
+        "name": "Vera",
+        "avatar_url": None,
+        "palette": {"bg": "#ecfeff", "accent": "#67e8f9", "skin": "#f0c7aa", "hair": "#111827", "shirt": "#0284c7"},
+        "traits": {"glasses": False, "hat": False, "facial_hair": False, "earrings": True, "smile": False, "hair_color": "black", "hair_style": "long", "shirt_color": "blue"},
+    },
+    {
+        "id": "wes",
+        "name": "Wes",
+        "avatar_url": None,
+        "palette": {"bg": "#f0fdf4", "accent": "#4ade80", "skin": "#e2b28d", "hair": "#c2410c", "shirt": "#15803d"},
+        "traits": {"glasses": False, "hat": True, "facial_hair": False, "earrings": False, "smile": True, "hair_color": "red", "hair_style": "short", "shirt_color": "green"},
+    },
+    {
+        "id": "zane",
+        "name": "Zane",
+        "avatar_url": None,
+        "palette": {"bg": "#faf5ff", "accent": "#c084fc", "skin": "#b98560", "hair": "#9ca3af", "shirt": "#7c3aed"},
+        "traits": {"glasses": True, "hat": False, "facial_hair": True, "earrings": False, "smile": True, "hair_color": "gray", "hair_style": "curly", "shirt_color": "purple"},
+    },
+)
 
 
 def _normalize_slug(value: Optional[str]) -> str:
@@ -100,6 +272,8 @@ def _default_join_url_for_game_type(game_type: Optional[str]) -> Optional[str]:
         return "/games/chess"
     if key in {"family_crossword", "crossword"}:
         return "/games/crossword"
+    if key in {"guess_who", "guesswho"}:
+        return "/games/guess-who"
     return None
 
 
@@ -863,6 +1037,7 @@ async def play_scorch(
 @router.websocket("/scorch/ws")
 async def scorch_socket(websocket: WebSocket):
     await manager.connect(websocket)
+    user = await _get_user_from_ws_cookie(websocket)
     try:
         await manager.send_personal(websocket, manager.game.get_state())
         
@@ -880,8 +1055,12 @@ async def scorch_socket(websocket: WebSocket):
                     await manager.send_personal(websocket, {"type": "joined_ack", "player_id": existing_player_id})
                     continue
 
-                raw_name = str(message.get("name", "")).strip()
-                clean_name = raw_name[:15] if raw_name else f"Guest_{random.randint(100, 999)}"
+                # Use authenticated username when available; fall back to client-provided name
+                if user:
+                    clean_name = user.username[:15]
+                else:
+                    raw_name = str(message.get("name", "")).strip()
+                    clean_name = raw_name[:15] if raw_name else f"Guest_{random.randint(100, 999)}"
                 color = "#%06x" % random.randint(0, 0xFFFFFF)
                 player = manager.game.add_player(clean_name, color)
                 if player is None:
@@ -1046,6 +1225,28 @@ async def play_tetris(
             "node_name": settings.NODE_NAME,
             "platform_name": settings.PLATFORM_NAME,
             "active_modules": active_modules
+        }
+    )
+
+
+@router.get("/guess-who", response_class=HTMLResponse)
+async def play_guess_who(
+    request: Request,
+    current_user: Optional[models.User] = Depends(auth.get_current_user_optional),
+    db: AsyncSession = Depends(database.get_db)
+):
+    active_modules = await server_utils.get_active_modules(db)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="games/guess_who.html",
+        context={
+            "user": current_user,
+            "node_name": settings.NODE_NAME,
+            "platform_name": settings.PLATFORM_NAME,
+            "active_modules": active_modules,
+            "guess_who_cards": GUESS_WHO_STOCK_CARDS,
+            "guess_who_card_source": "stock",
         }
     )
 

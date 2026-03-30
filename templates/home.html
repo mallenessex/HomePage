@@ -12,6 +12,9 @@
     <div style="margin-top: 16px;">
         <button id="btnShowJoinRequest" class="btn-outline" style="font-size: 0.9rem;">Request to Join</button>
     </div>
+    <div style="margin-top: 12px;">
+        <a href="/about" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none;">Learn more about {{ platform_name or 'HOMEPAGE' }} &rarr;</a>
+    </div>
 
     <!-- Join Request Form (hidden by default) -->
     <div id="joinRequestForm" style="display:none; margin-top: 24px; max-width: 400px; text-align: left;">
@@ -141,12 +144,18 @@
     {% set module_link = '/games' %}
     {% elif module.name == 'wikipedia' %}
     {% set module_link = '/wikipedia' %}
+    {% elif module.name == 'maps' %}
+    {% set module_link = '/maps/' %}
+    {% elif module.name == 'family_photos' %}
+    {% set module_link = '/family-photos/' %}
     {% elif module.name == 'voice' %}
     {% set module_link = '/voice/' %}
     {% elif module.name == 'mail' %}
     {% set module_link = '/mail' %}
     {% elif module.name == 'chat' %}
     {% set module_link = '/chat' %}
+    {% elif module.name == 'create' %}
+    {% set module_link = '/create' %}
     {% endif %}
 
     {% if module_link %}
@@ -160,16 +169,6 @@
     </a>
     {% endif %}
     {% endfor %}
-
-    <!-- Future: Photos -->
-    <div class="dash-card disabled">
-        <div class="dash-icon" style="background: #f59e0b;">📸</div>
-        <div class="dash-info">
-            <h3>Family Photos</h3>
-            <p>A private space for sharing and archiving memories.</p>
-        </div>
-        <div class="dash-badge locked">Coming Soon</div>
-    </div>
 </div>
 
 <style>

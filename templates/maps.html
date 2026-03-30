@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="maps-page">
+    <div class="page-header">
+        <h2>Offline Maps</h2>
+        <p>Browse locally stored OpenStreetMap tiles without reaching out to the internet.</p>
+    </div>
+
+    <div class="maps-shell">
+        <section class="card map-stage-card">
+            <div class="map-toolbar">
+                <div class="map-status">
+                    {% if map_source.available %}
+                    <span class="status-pill ready">Local Tiles Ready</span>
+                    <span class="status-detail">{{ map_source.source_type | replace('_', ' ') | title }}</span>
+                    {% else %}
+                    <span class="status-pill empty">No Local Tiles Found</span>
+                    <span class="status-detail">Load a tile folder or MBTiles file to begin.</span>
+                    {% endif %}
+                </div>
+                <div class="map-actions">
+                    <button type="button" class="btn-outline" id="zoom-out-btn">-</button>
+                    <button type="button" class="btn-outline" id="zoom-in-btn">+</button>
+                    <button type="button" class="btn-outline" id="reset-view-btn">Reset View</button>
+                </div>
+            </div>
+
+            <div class="map-frame" id="map-frame" aria-label="Offline map viewport">
+                <div class="map-grid" id="map-grid"></div>
+                {% if not map_source.available %}
+                <div class="map-empty-overlay">
+                    <h3>Tile Data Needed</h3>
+                    <p>Place raster tiles in `data/maps/tiles/z/x/y.png` or add an MBTiles file at `data/maps/base.mbtiles`.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="map-footer">
+                <span id="map-coords">Center: {{ '%.4f'|format(initial_lat) }}, {{ '%.4f'|format(initial_lng) }}</span>
+                <span id="map-zoom">Zoom: {{ initial_zoom }}</span>
+                <span class="map-attribution">Map data copyright OpenStreetMap contributors.</span>
+            </div>
+        </section>
+
+        <aside class="card map-info-card">
+            <h3>Local Sources</h3>
+            <div class="info-list">
+                <div class="info-row">
+                    <span>Tile Folder</span>
+                    <code>{{ map_source.tiles_path }}</code>
+                </div>
+                <div class="info-row">
+                    <span>MBTiles</span>
+                    <code>{{ map_source.mbtiles_path }}</code>
+                </div>
+                <div class="info-row">
+                    <span>Active Source</span>
+                    <strong>{{ map_source.source_type | replace('_', ' ') | title }}</strong>
+                </div>
+                {% if map_source.metadata %}
+                {% for key, value in map_source.metadata.items() %}
+                <div class="info-row">
+                    <span>{{ key }}</span>
+                    <code>{{ value }}</code>
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+
+            <h3>How To Load Data</h3>
+            <ol class="setup-list">
+                <li>Export a small OpenStreetMap area as raster tiles or an `MBTiles` file on another machine.</li>
+                <li>Copy the tiles into `data/maps/tiles` or place the `MBTiles` file at `data/maps/base.mbtiles`.</li>
+                <li>Refresh this page. The viewer will use local files only.</li>
+            </ol>
+
+            <h3>V1 Scope</h3>
+            <p class="muted-copy">This first pass is a local tile browser: pan, zoom, and inspect. Search, markers, routes, and geocoding can be added later.</p>
+        </aside>
+    </div>
+</div>
+
+<style>
+    .maps-page {
+        display: grid;
+        gap: 16px;
+    }
+
+    .maps-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 16px;
+        align-items: start;
+    }
+
+    .map-stage-card {
+        display: grid;
+        gap: 12px;
+    }
+
+    .map-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .map-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .status-pill.ready {
+        background: rgba(22, 163, 74, 0.12);
+        color: #166534;
+        border: 1px solid rgba(22, 163, 74, 0.25);
+    }
+
+    .status-pill.empty {
+        background: rgba(148, 163, 184, 0.14);
+        color: #475569;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+    }
+
+    .status-detail {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .map-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .map-frame {
+        position: relative;
+        min-height: 560px;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        background:
+            radial-gradient(circle at top right, rgba(34, 197, 94, 0.08), transparent 38%),
+            linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+        cursor: grab;
+        touch-action: none;
+    }
+
+    .map-frame.dragging {
+        cursor: grabbing;
+    }
+
+    .map-grid {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+    }
+
+    .map-tile {
+        position: absolute;
+        width: 256px;
+        height: 256px;
+        user-select: none;
+        pointer-events: none;
+        background:
+            linear-gradient(45deg, rgba(148, 163, 184, 0.08), rgba(255, 255, 255, 0.08)),
+            rgba(255, 255, 255, 0.18);
+    }
+
+    .map-empty-overlay {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        text-align: center;
+        background: rgba(248, 250, 252, 0.78);
+        backdrop-filter: blur(6px);
+    }
+
+    .map-empty-overlay h3 {
+        margin: 0 0 8px;
+    }
+
+    .map-empty-overlay p {
+        margin: 0;
+        max-width: 420px;
+        color: var(--text-muted);
+    }
+
+    .map-footer {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .map-attribution {
+        margin-left: auto;
+    }
+
+    .map-info-card {
+        display: grid;
+        gap: 14px;
+    }
+
+    .map-info-card h3 {
+        margin: 0;
+    }
+
+    .info-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .info-row {
+        display: grid;
+        gap: 4px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+    }
+
+    .info-row span {
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    .info-row code {
+        font-size: 0.8rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .setup-list {
+        margin: 0;
+        padding-left: 20px;
+        display: grid;
+        gap: 8px;
+        color: var(--text);
+    }
+
+    .muted-copy {
+        margin: 0;
+        color: var(--text-muted);
+    }
+
+    @media (max-width: 980px) {
+        .maps-shell {
+            grid-template-columns: 1fr;
+        }
+
+        .map-frame {
+            min-height: 440px;
+        }
+
+        .map-attribution {
+            margin-left: 0;
+        }
+    }
+</style>
+
+<script>
+    (() => {
+        const mapFrame = document.getElementById("map-frame");
+        const mapGrid = document.getElementById("map-grid");
+        const zoomOutBtn = document.getElementById("zoom-out-btn");
+        const zoomInBtn = document.getElementById("zoom-in-btn");
+        const resetViewBtn = document.getElementById("reset-view-btn");
+        const coordsEl = document.getElementById("map-coords");
+        const zoomEl = document.getElementById("map-zoom");
+        if (!mapFrame || !mapGrid || !coordsEl || !zoomEl) return;
+
+        const mapSourceAvailable = {{ "true" if map_source.available else "false" }};
+        const baseView = {
+            lat: {{ initial_lat|tojson }},
+            lng: {{ initial_lng|tojson }},
+            zoom: {{ initial_zoom|tojson }},
+        };
+        const state = {
+            lat: Number(baseView.lat),
+            lng: Number(baseView.lng),
+            zoom: Number(baseView.zoom),
+        };
+
+        let dragPointerId = null;
+        let dragStart = null;
+
+        function clamp(value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function project(lat, lng, zoom) {
+            const scale = 256 * Math.pow(2, zoom);
+            const safeLat = clamp(lat, -85.05112878, 85.05112878);
+            const siny = Math.sin((safeLat * Math.PI) / 180);
+            const x = ((lng + 180) / 360) * scale;
+            const y = (0.5 - Math.log((1 + siny) / (1 - siny)) / (4 * Math.PI)) * scale;
+            return { x, y };
+        }
+
+        function unproject(x, y, zoom) {
+            const scale = 256 * Math.pow(2, zoom);
+            const lng = (x / scale) * 360 - 180;
+            const n = Math.PI - (2 * Math.PI * y) / scale;
+            const lat = (180 / Math.PI) * Math.atan(Math.sinh(n));
+            return {
+                lat: clamp(lat, -85.05112878, 85.05112878),
+                lng,
+            };
+        }
+
+        function wrapTileX(tileX, zoom) {
+            const tilesPerAxis = Math.pow(2, zoom);
+            return ((tileX % tilesPerAxis) + tilesPerAxis) % tilesPerAxis;
+        }
+
+        function render() {
+            const rect = mapFrame.getBoundingClientRect();
+            const width = Math.max(1, Math.round(rect.width));
+            const height = Math.max(1, Math.round(rect.height));
+            const centerWorld = project(state.lat, state.lng, state.zoom);
+            const topLeftX = centerWorld.x - width / 2;
+            const topLeftY = centerWorld.y - height / 2;
+            const startTileX = Math.floor(topLeftX / 256) - 1;
+            const startTileY = Math.floor(topLeftY / 256) - 1;
+            const endTileX = Math.floor((topLeftX + width) / 256) + 1;
+            const endTileY = Math.floor((topLeftY + height) / 256) + 1;
+            const maxTile = Math.pow(2, state.zoom) - 1;
+
+            mapGrid.innerHTML = "";
+            for (let tileX = startTileX; tileX <= endTileX; tileX += 1) {
+                for (let tileY = startTileY; tileY <= endTileY; tileY += 1) {
+                    if (tileY < 0 || tileY > maxTile) continue;
+                    const img = document.createElement("img");
+                    img.className = "map-tile";
+                    img.alt = "";
+                    img.draggable = false;
+                    img.loading = "eager";
+                    img.decoding = "async";
+                    img.style.left = `${tileX * 256 - topLeftX}px`;
+                    img.style.top = `${tileY * 256 - topLeftY}px`;
+                    img.src = `/maps/tiles/${state.zoom}/${wrapTileX(tileX, state.zoom)}/${tileY}.png`;
+                    mapGrid.appendChild(img);
+                }
+            }
+
+            coordsEl.textContent = `Center: ${state.lat.toFixed(4)}, ${state.lng.toFixed(4)}`;
+            zoomEl.textContent = `Zoom: ${state.zoom}`;
+        }
+
+        function setZoom(nextZoom) {
+            const clampedZoom = clamp(nextZoom, 0, 14);
+            if (clampedZoom === state.zoom) return;
+            state.zoom = clampedZoom;
+            render();
+        }
+
+        function resetView() {
+            state.lat = Number(baseView.lat);
+            state.lng = Number(baseView.lng);
+            state.zoom = Number(baseView.zoom);
+            render();
+        }
+
+        mapFrame.addEventListener("pointerdown", (event) => {
+            dragPointerId = event.pointerId;
+            dragStart = {
+                x: event.clientX,
+                y: event.clientY,
+                world: project(state.lat, state.lng, state.zoom),
+            };
+            mapFrame.classList.add("dragging");
+            mapFrame.setPointerCapture(event.pointerId);
+        });
+
+        mapFrame.addEventListener("pointermove", (event) => {
+            if (dragPointerId !== event.pointerId || !dragStart) return;
+            const dx = event.clientX - dragStart.x;
+            const dy = event.clientY - dragStart.y;
+            const nextWorld = {
+                x: dragStart.world.x - dx,
+                y: dragStart.world.y - dy,
+            };
+            const unprojected = unproject(nextWorld.x, nextWorld.y, state.zoom);
+            state.lat = unprojected.lat;
+            state.lng = unprojected.lng;
+            render();
+        });
+
+        function endDrag(event) {
+            if (dragPointerId !== event.pointerId) return;
+            dragPointerId = null;
+            dragStart = null;
+            mapFrame.classList.remove("dragging");
+            try {
+                mapFrame.releasePointerCapture(event.pointerId);
+            } catch (_) {
+                // Ignore if capture was already released.
+            }
+        }
+
+        mapFrame.addEventListener("pointerup", endDrag);
+        mapFrame.addEventListener("pointercancel", endDrag);
+        mapFrame.addEventListener("wheel", (event) => {
+            event.preventDefault();
+            setZoom(state.zoom + (event.deltaY < 0 ? 1 : -1));
+        }, { passive: false });
+
+        zoomOutBtn?.addEventListener("click", () => setZoom(state.zoom - 1));
+        zoomInBtn?.addEventListener("click", () => setZoom(state.zoom + 1));
+        resetViewBtn?.addEventListener("click", resetView);
+
+        if (!mapSourceAvailable) {
+            coordsEl.textContent = "Center: waiting for local tile data";
+        }
+
+        render();
+    })();
+</script>
+{% endblock %}

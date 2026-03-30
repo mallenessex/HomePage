@@ -7,11 +7,17 @@
     <p>To enable syncing with your {{ provider }} calendar, you will need to provide API credentials. This ensures your
         data remains under your control without relying on a central HOMEPAGE gateway.</p>
 
+    <div style="background:#8b6508;color:#fff;padding:10px 16px;border-radius:6px;margin-bottom:12px;font-size:0.9rem;">
+        &#9888; <strong>External Internet Required:</strong> Calendar sync connects to
+        {% if provider == 'Google' %}Google{% else %}Microsoft{% endif %} servers.
+        This feature should only be configured by an administrator.
+    </div>
+
     <div class="instructions">
         <h3>Setup Instructions:</h3>
         <ol>
             {% if provider == 'Google' %}
-            <li>Go to the <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a>.</li>
+            <li>Go to the Google Cloud Console (<code>console.cloud.google.com</code>).</li>
             <li>Create a new project (e.g., "Family Homepage").</li>
             <li>Enable the <strong>Google Calendar API</strong>.</li>
             <li>Configure the <strong>OAuth consent screen</strong>.</li>
@@ -19,7 +25,7 @@
             <li>Add this Authorized Redirect URI: <br><code>{{ request.base_url }}calendar/sync/google/callback</code>
             </li>
             {% else %}
-            <li>Go to the <a href="https://portal.azure.com/" target="_blank">Azure Portal</a> (App Registrations).</li>
+            <li>Go to the Azure Portal &mdash; App Registrations (<code>portal.azure.com</code>).</li>
             <li>Register a new application.</li>
             <li>Under <strong>Authentication</strong>, add a Web platform.</li>
             <li>Add this Redirect URI: <br><code>{{ request.base_url }}calendar/sync/outlook/callback</code></li>

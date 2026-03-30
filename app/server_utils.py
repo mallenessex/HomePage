@@ -475,6 +475,22 @@ async def init_default_modules(db: AsyncSession):
             "is_enabled": 0
         },
         {
+            "name": "maps",
+            "display_name": "Offline Maps",
+            "description": "Browse local OpenStreetMap tiles without an internet connection.",
+            "icon": "🗺️",
+            "color": "#16a34a",
+            "is_enabled": 1
+        },
+        {
+            "name": "family_photos",
+            "display_name": "Family Photos",
+            "description": "View media shared across family profiles in one place.",
+            "icon": "📸",
+            "color": "#f97316",
+            "is_enabled": 1
+        },
+        {
             "name": "voice",
             "display_name": "Voice Chat",
             "description": "Encrypted voice rooms using WebRTC signaling and TURN relay support.",

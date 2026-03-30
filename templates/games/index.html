@@ -76,6 +76,28 @@
             </div>
         </button>
 
+        <a class="game-card" href="/games/guess-who">
+            <div class="game-preview"
+                style="background: linear-gradient(135deg, #fb7185 0%, #f59e0b 48%, #38bdf8 100%); display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 3rem;">🕵️</span>
+            </div>
+            <div class="game-details">
+                <div class="game-type">Party</div>
+                <h3>Guess Who? Remix</h3>
+                <p>Classic face-card deduction reworked for local pass-and-play with up to four players.</p>
+                <div class="game-tags">
+                    <span class="game-tag-chip">Mode: Multiplayer</span>
+                    <span class="game-tag-chip">Genre: Party</span>
+                </div>
+                <div class="game-meta">
+                    <span>👥 2 to 4 Players</span>
+                    <span class="active-badge"
+                        style="background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px;">Open
+                        Table</span>
+                </div>
+            </div>
+        </a>
+
         <!-- Family Crossword -->
         <a class="game-card" href="/games/crossword">
             <div class="game-preview"
@@ -210,6 +232,7 @@
                             <option value="Civic Chess">Civic Chess</option>
                             <option value="2048">2048</option>
                             <option value="Tetris">Tetris</option>
+                            <option value="Guess Who">Guess Who</option>
                             <option value="Family Crossword">Family Crossword</option>
                             <option value="Other">Other</option>
                         </select>
@@ -275,6 +298,7 @@
                 "civic chess": { mode: "multiplayer", genre: "board_strategy", joinUrl: "/games/chess", players: 2 },
                 "2048": { mode: "single_player", genre: "puzzle", joinUrl: "/games/2048", players: 1 },
                 "tetris": { mode: "single_player", genre: "puzzle", joinUrl: "/games/tetris", players: 1 },
+                "guess who": { mode: "multiplayer", genre: "party", joinUrl: "/games/guess-who", players: 4 },
                 "family crossword": { mode: "multiplayer", genre: "word_puzzle", joinUrl: "/games/crossword", players: 12 },
                 "other": { mode: "multiplayer", genre: "general", joinUrl: "", players: 8 }
             };

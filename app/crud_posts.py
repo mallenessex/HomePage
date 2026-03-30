@@ -36,6 +36,9 @@ async def create_post(db: AsyncSession, post_data: schemas.PostCreate, user: mod
         body=post_data.body,
         media_path=post_data.media_path,
         media_type=post_data.media_type,
+        include_in_family_photos=bool(
+            getattr(post_data, "include_in_family_photos", False)
+        ),
         mood=post_data.mood,
         author_id=user.id,
         signature=signature,

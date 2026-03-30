@@ -236,6 +236,7 @@ function setupIPC() {
   ipcMain.handle('config:renameServer', (_e, index, name) => {
     if (index >= 0 && index < cfg.servers.length && name) {
       cfg.servers[index].label = name;
+      cfg.servers[index].user_renamed = true;
       cfg.save();
     }
     return { ok: true, labels: cfg.serverLabels() };

@@ -81,7 +81,7 @@ class Settings(BaseSettings):
         """Return the set of optional module names whose routers should be registered."""
         import json as _json
 
-        ALL_OPTIONAL = {"calendar", "games", "wikipedia", "discussions", "voice", "mail", "chat", "create"}
+        ALL_OPTIONAL = {"calendar", "games", "wikipedia", "discussions", "voice", "mail", "chat", "create", "maps", "family_photos"}
 
         # 1. Check data/enabled_modules.json
         modules_file = self.BASE_DIR / "data" / "enabled_modules.json"

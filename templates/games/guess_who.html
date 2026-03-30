@@ -1,0 +1,1792 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="guess-shell">
+    <section class="guess-hero">
+        <div class="guess-hero-copy">
+            <p class="guess-kicker">Local Multiplayer Party Game</p>
+            <h2>Guess Who? Remix</h2>
+            <p>Classic face-card deduction, rebuilt for 2 to 4 players on one screen with private handoff rounds and a stock illustrated deck.</p>
+        </div>
+        <div class="guess-hero-actions">
+            <a href="/games" class="btn-outline guess-hero-link">Back to Gallery</a>
+        </div>
+    </section>
+
+    <div class="guess-layout">
+        <div class="guess-column guess-column-left">
+            <section class="card guess-panel">
+                <div class="guess-panel-head">
+                    <div>
+                        <p class="guess-kicker">Setup</p>
+                        <h3>Deal a New Round</h3>
+                    </div>
+                    <span class="guess-pill">{{ guess_who_cards|length }} cards</span>
+                </div>
+                <form id="setup-form" class="setup-form">
+                    <div class="setup-row">
+                        <label for="player-count">Players</label>
+                        <select id="player-count" name="player_count">
+                            <option value="2" selected>2 players</option>
+                            <option value="3">3 players</option>
+                            <option value="4">4 players</option>
+                        </select>
+                    </div>
+                    <div id="player-inputs" class="player-inputs"></div>
+                    <button type="submit" class="btn-primary setup-submit">Deal Secret Cards</button>
+                </form>
+                <p class="setup-note">
+                    {% if guess_who_card_source == "stock" %}
+                    Using a stock illustrated character deck for now. The card renderer already supports avatar URLs, so this is ready for a later swap to server members and profile pictures.
+                    {% else %}
+                    This round is using live member cards.
+                    {% endif %}
+                </p>
+            </section>
+
+            <section class="card guess-panel">
+                <div class="guess-panel-head">
+                    <div>
+                        <p class="guess-kicker">Players</p>
+                        <h3>Round Roster</h3>
+                    </div>
+                    <span class="guess-pill" id="active-count-pill">No round</span>
+                </div>
+                <div id="roster-list" class="roster-list">
+                    <p class="panel-placeholder">Deal the cards to start a round.</p>
+                </div>
+            </section>
+
+            <section class="card guess-panel">
+                <div class="guess-panel-head">
+                    <div>
+                        <p class="guess-kicker">How It Works</p>
+                        <h3>Rules Snapshot</h3>
+                    </div>
+                </div>
+                <div class="rules-list">
+                    <p>Each round, every active player secretly queues one action: <b>Ask</b> or <b>Guess</b>.</p>
+                    <p>Questions all resolve together first, so every private board updates at the same time.</p>
+                    <p>Queued guesses resolve after the question phase, so mutual knockouts and full-table chaos are possible.</p>
+                    <p>At any time you can manually flip cards on your private board for that opponent.</p>
+                    <p>A correct direct guess knocks out your target. A wrong direct guess knocks you out, just like the classic high-stakes finish.</p>
+                    <p>Last active player standing wins. If everyone gets eliminated in the same resolution, the round ends in a draw.</p>
+                </div>
+            </section>
+        </div>
+
+        <div class="guess-column guess-column-right">
+            <section class="card guess-panel guess-panel-wide">
+                <div class="guess-panel-head guess-panel-head-spread">
+                    <div>
+                        <p class="guess-kicker">Round Desk</p>
+                        <h3 id="turn-player-name">No round active</h3>
+                        <p id="turn-status-copy" class="turn-copy">Choose players, deal the deck, and hand the screen around so everyone can queue one hidden action.</p>
+                    </div>
+                    <div class="turn-actions">
+                        <button type="button" class="btn-outline" id="peek-secret-btn">Peek at My Card</button>
+                        <button type="button" class="btn-outline" id="redeal-btn">Redeal Same Players</button>
+                    </div>
+                </div>
+
+                <div id="answer-banner" class="answer-banner answer-banner-neutral">
+                    Each active player queues one hidden Ask or Guess. Questions resolve first, then guesses resolve together.
+                </div>
+
+                <div id="target-tabs" class="target-tabs"></div>
+
+                <div class="controls-grid">
+                    <div class="control-block">
+                        <label for="action-type-select">Action Choice</label>
+                        <select id="action-type-select">
+                            <option value="ask" selected>Ask</option>
+                            <option value="guess">Guess</option>
+                        </select>
+                        <p id="action-type-copy" class="tool-copy">Ask resolves with the other queued questions before any guesses are checked.</p>
+                    </div>
+                    <div class="control-block" id="question-block">
+                        <label for="question-select">Question To Ask</label>
+                        <select id="question-select"></select>
+                    </div>
+                    <div class="control-block" id="guess-block">
+                        <label for="guess-select">Card To Guess</label>
+                        <select id="guess-select"></select>
+                    </div>
+                    <div class="control-block">
+                        <label>Queue + Board Tools</label>
+                        <button type="button" class="btn-primary queue-submit" id="queue-btn">Lock In Ask</button>
+                        <div class="tool-row">
+                            <button type="button" class="btn-outline" id="reset-board-btn">Reset This Board</button>
+                            <button type="button" class="btn-outline" id="pass-device-btn">Cover Screen</button>
+                        </div>
+                        <p id="board-summary" class="tool-copy">Private boards are tracked separately for each opponent.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card guess-panel guess-panel-wide">
+                <div class="guess-panel-head guess-panel-head-spread">
+                    <div>
+                        <p class="guess-kicker">Suspect Board</p>
+                        <h3 id="board-title">Face Cards</h3>
+                    </div>
+                    <span class="guess-pill" id="suspect-count-pill">24 suspects</span>
+                </div>
+                <div id="board-grid" class="board-grid">
+                    <div class="board-placeholder">
+                        <p>The full deck will appear here after the round is dealt.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card guess-panel guess-panel-wide">
+                <div class="guess-panel-head">
+                    <div>
+                        <p class="guess-kicker">Turn Log</p>
+                        <h3>Round Notes</h3>
+                    </div>
+                </div>
+                <div id="log-list" class="log-list">
+                    <p class="panel-placeholder">Questions, answers, and knockouts will show up here.</p>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<div id="overlay" class="guess-overlay hidden" aria-live="polite">
+    <div class="guess-overlay-card">
+        <p id="overlay-kicker" class="guess-kicker"></p>
+        <h3 id="overlay-title"></h3>
+        <p id="overlay-copy" class="overlay-copy"></p>
+        <div id="overlay-body" class="overlay-body"></div>
+        <div id="overlay-actions" class="overlay-actions"></div>
+    </div>
+</div>
+
+<style>
+    .guess-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding-bottom: 56px;
+    }
+
+    .guess-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 28px;
+        padding: 32px;
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: flex-end;
+        background:
+            radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%),
+            linear-gradient(135deg, #0f172a 0%, #1d4ed8 42%, #f43f5e 100%);
+        color: #f8fafc;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.22);
+    }
+
+    .guess-hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -80px -100px auto;
+        width: 240px;
+        height: 240px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        transform: rotate(18deg);
+    }
+
+    .guess-hero-copy,
+    .guess-hero-actions {
+        position: relative;
+        z-index: 1;
+    }
+
+    .guess-kicker {
+        margin: 0 0 8px;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        opacity: 0.86;
+    }
+
+    .guess-hero h2 {
+        margin: 0;
+        font-size: clamp(2.2rem, 4vw, 3.4rem);
+        font-weight: 900;
+        line-height: 1;
+    }
+
+    .guess-hero-copy p:last-child {
+        margin: 12px 0 0;
+        max-width: 720px;
+        font-size: 1.03rem;
+        line-height: 1.6;
+        color: rgba(248, 250, 252, 0.92);
+    }
+
+    .guess-hero-link {
+        border-color: rgba(248, 250, 252, 0.28) !important;
+        color: #f8fafc !important;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .guess-layout {
+        display: grid;
+        grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+        gap: 24px;
+        align-items: start;
+    }
+
+    .guess-column {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .guess-panel {
+        padding: 24px !important;
+        border-radius: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .guess-panel-wide {
+        gap: 20px;
+    }
+
+    .guess-panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .guess-panel-head h3 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 800;
+    }
+
+    .guess-panel-head-spread {
+        align-items: center;
+    }
+
+    .guess-pill {
+        align-self: flex-start;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 800;
+        color: var(--primary);
+        background: rgba(59, 130, 246, 0.12);
+        border: 1px solid rgba(59, 130, 246, 0.18);
+        white-space: nowrap;
+    }
+
+    .setup-form,
+    .control-block {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .setup-row {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .setup-form label,
+    .control-block label {
+        font-size: 0.9rem;
+        font-weight: 800;
+    }
+
+    .setup-form select,
+    .setup-form input,
+    .control-block select {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font: inherit;
+    }
+
+    .player-inputs {
+        display: grid;
+        gap: 12px;
+    }
+
+    .player-input {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .player-input span {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--text-muted);
+    }
+
+    .setup-submit {
+        width: 100%;
+    }
+
+    .setup-note,
+    .turn-copy,
+    .tool-copy,
+    .overlay-copy,
+    .panel-placeholder,
+    .rules-list p {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.6;
+    }
+
+    .rules-list {
+        display: grid;
+        gap: 12px;
+    }
+
+    .roster-list,
+    .log-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .roster-item,
+    .log-item {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--bg);
+        padding: 14px 16px;
+    }
+
+    .roster-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+    }
+
+    .roster-main {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .roster-badge {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--primary);
+        color: white;
+        font-weight: 900;
+        flex: 0 0 auto;
+    }
+
+    .roster-main strong,
+    .log-item strong {
+        display: block;
+        font-size: 0.98rem;
+        margin-bottom: 3px;
+    }
+
+    .roster-meta,
+    .roster-main span,
+    .log-item span {
+        color: var(--text-muted);
+        font-size: 0.86rem;
+    }
+
+    .roster-item.is-current {
+        border-color: rgba(59, 130, 246, 0.42);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+    }
+
+    .roster-item.is-queued {
+        border-color: rgba(34, 197, 94, 0.38);
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.10);
+    }
+
+    .roster-item.is-eliminated {
+        opacity: 0.72;
+    }
+
+    .turn-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .answer-banner {
+        padding: 14px 16px;
+        border-radius: 16px;
+        font-weight: 700;
+        line-height: 1.5;
+    }
+
+    .answer-banner-neutral {
+        background: rgba(15, 23, 42, 0.04);
+        color: var(--text);
+    }
+
+    .answer-banner-yes {
+        background: rgba(34, 197, 94, 0.14);
+        color: #166534;
+    }
+
+    .answer-banner-no {
+        background: rgba(239, 68, 68, 0.12);
+        color: #991b1b;
+    }
+
+    .answer-banner-win {
+        background: rgba(245, 158, 11, 0.15);
+        color: #92400e;
+    }
+
+    .answer-banner-draw {
+        background: rgba(168, 85, 247, 0.14);
+        color: #6b21a8;
+    }
+
+    .target-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .target-tab {
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+
+    .target-tab:hover {
+        border-color: var(--primary);
+        transform: translateY(-1px);
+    }
+
+    .target-tab.is-active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+        box-shadow: 0 10px 18px rgba(59, 130, 246, 0.18);
+    }
+
+    .controls-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .control-block.is-inactive {
+        opacity: 0.55;
+    }
+
+    .queue-submit {
+        width: 100%;
+    }
+
+    .tool-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .board-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+        gap: 14px;
+    }
+
+    .board-placeholder {
+        min-height: 180px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px dashed var(--border);
+        border-radius: 20px;
+        background: var(--bg);
+        color: var(--text-muted);
+        text-align: center;
+        padding: 20px;
+    }
+
+    .suspect-card {
+        width: 100%;
+        text-align: left;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 10px;
+        cursor: pointer;
+        color: inherit;
+        transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+    }
+
+    .suspect-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--primary);
+        box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
+    }
+
+    .suspect-card.is-flipped {
+        opacity: 0.35;
+        transform: scale(0.97);
+        filter: grayscale(0.95);
+    }
+
+    .suspect-card.is-answer {
+        border-color: #22c55e;
+        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.18);
+    }
+
+    .suspect-art {
+        border-radius: 16px;
+        overflow: hidden;
+        aspect-ratio: 1 / 1.06;
+        background: linear-gradient(180deg, rgba(248, 250, 252, 0.4), rgba(226, 232, 240, 0.65));
+    }
+
+    .suspect-art img,
+    .portrait-svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+    }
+
+    .suspect-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 10px 2px 4px;
+    }
+
+    .suspect-name {
+        font-size: 0.94rem;
+        font-weight: 800;
+    }
+
+    .suspect-status {
+        font-size: 0.77rem;
+        color: var(--text-muted);
+    }
+
+    .log-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: flex-start;
+    }
+
+    .log-item strong {
+        margin: 0 0 4px;
+    }
+
+    .log-chip {
+        flex: 0 0 auto;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .log-chip.info {
+        background: rgba(59, 130, 246, 0.12);
+        color: #1d4ed8;
+    }
+
+    .log-chip.yes {
+        background: rgba(34, 197, 94, 0.14);
+        color: #166534;
+    }
+
+    .log-chip.no {
+        background: rgba(239, 68, 68, 0.12);
+        color: #991b1b;
+    }
+
+    .log-chip.win {
+        background: rgba(245, 158, 11, 0.15);
+        color: #92400e;
+    }
+
+    .log-chip.draw {
+        background: rgba(168, 85, 247, 0.14);
+        color: #6b21a8;
+    }
+
+    .guess-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1200;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(15, 23, 42, 0.76);
+        backdrop-filter: blur(10px);
+    }
+
+    .guess-overlay.hidden {
+        display: none;
+    }
+
+    .guess-overlay-card {
+        width: min(720px, 100%);
+        background: var(--card);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 28px;
+        padding: 28px;
+        box-shadow: 0 32px 70px rgba(15, 23, 42, 0.28);
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .guess-overlay-card h3 {
+        margin: 0;
+        font-size: 1.8rem;
+        font-weight: 900;
+    }
+
+    .overlay-body {
+        display: flex;
+        justify-content: center;
+    }
+
+    .overlay-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .overlay-shield {
+        width: min(360px, 100%);
+        border-radius: 24px;
+        padding: 38px 24px;
+        text-align: center;
+        background: linear-gradient(135deg, #0f172a, #1e3a8a);
+        color: #f8fafc;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .overlay-shield-mark {
+        display: inline-flex;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(248, 250, 252, 0.14);
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 14px;
+    }
+
+    .overlay-card-preview {
+        width: min(260px, 100%);
+    }
+
+    .overlay-card-preview .suspect-card {
+        cursor: default;
+    }
+
+    @media (max-width: 1120px) {
+        .guess-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .controls-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 760px) {
+        .guess-hero,
+        .guess-panel-head-spread {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .turn-actions,
+        .overlay-actions {
+            width: 100%;
+            justify-content: stretch;
+        }
+
+        .turn-actions button,
+        .overlay-actions button,
+        .tool-row button {
+            flex: 1 1 180px;
+        }
+
+        .board-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    body.theme-retro .guess-hero,
+    body.theme-retro .guess-panel,
+    body.theme-retro .guess-overlay-card,
+    body.theme-retro .suspect-card,
+    body.theme-retro .roster-item,
+    body.theme-retro .log-item,
+    body.theme-retro .board-placeholder {
+        border-radius: 0;
+    }
+</style>
+
+<script>
+    const STOCK_CARDS = {{ guess_who_cards | tojson }};
+    const CARD_SOURCE = {{ guess_who_card_source | tojson }};
+
+    const QUESTION_BANK = [
+        { id: "glasses", label: "Do they wear glasses?", test: (card) => Boolean(card.traits?.glasses) },
+        { id: "hat", label: "Do they wear a hat?", test: (card) => Boolean(card.traits?.hat) },
+        { id: "facial_hair", label: "Do they have facial hair?", test: (card) => Boolean(card.traits?.facial_hair) },
+        { id: "earrings", label: "Do they wear earrings?", test: (card) => Boolean(card.traits?.earrings) },
+        { id: "smile", label: "Are they smiling?", test: (card) => Boolean(card.traits?.smile) },
+        { id: "hair_short", label: "Do they have short hair?", test: (card) => card.traits?.hair_style === "short" },
+        { id: "hair_long", label: "Do they have long hair?", test: (card) => card.traits?.hair_style === "long" },
+        { id: "hair_curly", label: "Do they have curly hair?", test: (card) => card.traits?.hair_style === "curly" },
+        { id: "hair_bald", label: "Are they bald or closely shaved?", test: (card) => card.traits?.hair_style === "bald" },
+        { id: "hair_black", label: "Do they have black hair?", test: (card) => card.traits?.hair_color === "black" },
+        { id: "hair_brown", label: "Do they have brown hair?", test: (card) => card.traits?.hair_color === "brown" },
+        { id: "hair_blonde", label: "Do they have blonde hair?", test: (card) => card.traits?.hair_color === "blonde" },
+        { id: "hair_red", label: "Do they have red hair?", test: (card) => card.traits?.hair_color === "red" },
+        { id: "hair_gray", label: "Do they have gray hair?", test: (card) => card.traits?.hair_color === "gray" },
+        { id: "shirt_blue", label: "Are they wearing a blue top?", test: (card) => card.traits?.shirt_color === "blue" },
+        { id: "shirt_green", label: "Are they wearing a green top?", test: (card) => card.traits?.shirt_color === "green" },
+        { id: "shirt_red", label: "Are they wearing a red top?", test: (card) => card.traits?.shirt_color === "red" },
+        { id: "shirt_yellow", label: "Are they wearing a yellow top?", test: (card) => card.traits?.shirt_color === "yellow" },
+        { id: "shirt_purple", label: "Are they wearing a purple top?", test: (card) => card.traits?.shirt_color === "purple" },
+        { id: "shirt_orange", label: "Are they wearing an orange top?", test: (card) => card.traits?.shirt_color === "orange" },
+    ];
+
+    const state = {
+        players: [],
+        boards: {},
+        currentTurnIndex: 0,
+        selectedTargetByPlayer: {},
+        queuedActions: {},
+        log: [],
+        roundNumber: 1,
+        overlay: { mode: "idle" },
+        winnerId: null,
+        isDraw: false,
+        lastAction: null,
+    };
+
+    const elements = {
+        setupForm: document.getElementById("setup-form"),
+        playerCount: document.getElementById("player-count"),
+        playerInputs: document.getElementById("player-inputs"),
+        rosterList: document.getElementById("roster-list"),
+        activeCountPill: document.getElementById("active-count-pill"),
+        turnPlayerName: document.getElementById("turn-player-name"),
+        turnStatusCopy: document.getElementById("turn-status-copy"),
+        answerBanner: document.getElementById("answer-banner"),
+        targetTabs: document.getElementById("target-tabs"),
+        actionTypeSelect: document.getElementById("action-type-select"),
+        actionTypeCopy: document.getElementById("action-type-copy"),
+        questionBlock: document.getElementById("question-block"),
+        questionSelect: document.getElementById("question-select"),
+        guessBlock: document.getElementById("guess-block"),
+        guessSelect: document.getElementById("guess-select"),
+        queueBtn: document.getElementById("queue-btn"),
+        resetBoardBtn: document.getElementById("reset-board-btn"),
+        passDeviceBtn: document.getElementById("pass-device-btn"),
+        peekSecretBtn: document.getElementById("peek-secret-btn"),
+        redealBtn: document.getElementById("redeal-btn"),
+        boardSummary: document.getElementById("board-summary"),
+        boardTitle: document.getElementById("board-title"),
+        suspectCountPill: document.getElementById("suspect-count-pill"),
+        boardGrid: document.getElementById("board-grid"),
+        logList: document.getElementById("log-list"),
+        overlay: document.getElementById("overlay"),
+        overlayKicker: document.getElementById("overlay-kicker"),
+        overlayTitle: document.getElementById("overlay-title"),
+        overlayCopy: document.getElementById("overlay-copy"),
+        overlayBody: document.getElementById("overlay-body"),
+        overlayActions: document.getElementById("overlay-actions"),
+    };
+
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function shuffle(items) {
+        const copy = [...items];
+        for (let index = copy.length - 1; index > 0; index -= 1) {
+            const swapIndex = Math.floor(Math.random() * (index + 1));
+            [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+        }
+        return copy;
+    }
+
+    function getCard(cardId) {
+        return STOCK_CARDS.find((card) => card.id === cardId) || null;
+    }
+
+    function getPlayer(playerId) {
+        return state.players.find((player) => player.id === playerId) || null;
+    }
+
+    function getCurrentPlayer() {
+        return state.players[state.currentTurnIndex] || null;
+    }
+
+    function getActivePlayers() {
+        return state.players.filter((player) => player.active);
+    }
+
+    function getActiveOpponents(playerId) {
+        return state.players.filter((player) => player.id !== playerId && player.active);
+    }
+
+    function getQueuedAction(playerId) {
+        return state.queuedActions[playerId] || null;
+    }
+
+    function getQueuedCount() {
+        return Object.keys(state.queuedActions).length;
+    }
+
+    function getUnsubmittedActivePlayers() {
+        return getActivePlayers().filter((player) => !getQueuedAction(player.id));
+    }
+
+    function getBoard(viewerId, targetId) {
+        return state.boards[viewerId]?.[targetId] || null;
+    }
+
+    function setCurrentPlayerById(playerId) {
+        const nextIndex = state.players.findIndex((player) => player.id === playerId);
+        if (nextIndex >= 0) {
+            state.currentTurnIndex = nextIndex;
+        }
+        return state.players[state.currentTurnIndex] || null;
+    }
+
+    function setCurrentToFirstUnsubmitted() {
+        const nextPlayer = getUnsubmittedActivePlayers()[0] || null;
+        if (!nextPlayer) {
+            return null;
+        }
+        return setCurrentPlayerById(nextPlayer.id);
+    }
+
+    function ensureSelectedTarget(playerId) {
+        const activeOpponents = getActiveOpponents(playerId);
+        if (!activeOpponents.length) {
+            delete state.selectedTargetByPlayer[playerId];
+            return null;
+        }
+        const currentSelection = state.selectedTargetByPlayer[playerId];
+        const stillValid = activeOpponents.some((player) => player.id === currentSelection);
+        if (!stillValid) {
+            state.selectedTargetByPlayer[playerId] = activeOpponents[0].id;
+        }
+        return state.selectedTargetByPlayer[playerId];
+    }
+
+    function getCurrentTarget() {
+        const currentPlayer = getCurrentPlayer();
+        if (!currentPlayer) {
+            return null;
+        }
+        const targetId = ensureSelectedTarget(currentPlayer.id);
+        return targetId ? getPlayer(targetId) : null;
+    }
+
+    function addLog(text, tone = "info") {
+        state.log.unshift({ text, tone });
+    }
+
+    function openQueueOverlay(playerId) {
+        state.overlay = { mode: "queue", playerId };
+    }
+
+    function openPeekOverlay(playerId) {
+        state.overlay = { mode: "peek", playerId };
+    }
+
+    function openRevealOverlay(playerId) {
+        state.overlay = { mode: "reveal", playerId, revealed: false };
+    }
+
+    function hideOverlay() {
+        state.overlay = { mode: "idle" };
+    }
+
+    function resetComposer() {
+        elements.actionTypeSelect.value = "ask";
+        elements.questionSelect.value = QUESTION_BANK[0]?.id || "";
+        elements.guessSelect.value = "";
+    }
+
+    function syncActionModeUI() {
+        const mode = elements.actionTypeSelect.value || "ask";
+        const askMode = mode === "ask";
+        elements.questionBlock.classList.toggle("is-inactive", !askMode);
+        elements.guessBlock.classList.toggle("is-inactive", askMode);
+        elements.questionSelect.disabled = !askMode;
+        elements.guessSelect.disabled = askMode;
+        elements.queueBtn.textContent = askMode ? "Lock In Ask" : "Lock In Guess";
+        elements.actionTypeCopy.textContent = askMode
+            ? "Ask resolves with the other queued questions before any guesses are checked."
+            : "Guesses stay hidden in the queue and evaluate only after the question phase.";
+    }
+
+    function startGame(names) {
+        const cleanedNames = names.map((name, index) => {
+            const trimmed = String(name || "").trim();
+            return trimmed || `Player ${index + 1}`;
+        });
+        const dealtCards = shuffle(STOCK_CARDS).slice(0, cleanedNames.length);
+        state.players = cleanedNames.map((name, index) => ({
+            id: `player-${index + 1}`,
+            name,
+            secretId: dealtCards[index].id,
+            active: true,
+            revealed: false,
+            eliminatedBy: null,
+        }));
+        state.boards = {};
+        state.players.forEach((viewer) => {
+            state.boards[viewer.id] = {};
+            state.players.forEach((target) => {
+                if (viewer.id === target.id) {
+                    return;
+                }
+                state.boards[viewer.id][target.id] = {
+                    eliminatedIds: [],
+                    askedQuestionIds: [],
+                };
+            });
+        });
+        state.currentTurnIndex = 0;
+        state.selectedTargetByPlayer = {};
+        state.queuedActions = {};
+        state.players.forEach((player) => ensureSelectedTarget(player.id));
+        state.log = [];
+        state.roundNumber = 1;
+        state.winnerId = null;
+        state.isDraw = false;
+        state.lastAction = {
+            tone: "info",
+            text: `Fresh round dealt with ${cleanedNames.length} players and a ${CARD_SOURCE === "stock" ? "stock" : "live"} deck.`,
+        };
+        addLog(`Round started for ${cleanedNames.join(", ")}.`, "info");
+        addLog("Each active player will now queue one hidden Ask or Guess for round 1.", "info");
+        resetComposer();
+        openRevealOverlay(state.players[0].id);
+        renderAll();
+    }
+
+    function beginRoundCollection(incrementRound = false) {
+        if (incrementRound) {
+            state.roundNumber += 1;
+        }
+        state.queuedActions = {};
+        state.players.forEach((player) => ensureSelectedTarget(player.id));
+        const nextPlayer = setCurrentToFirstUnsubmitted();
+        resetComposer();
+        if (nextPlayer) {
+            openQueueOverlay(nextPlayer.id);
+        } else {
+            hideOverlay();
+        }
+    }
+
+    function advanceReveal() {
+        const currentPlayerId = state.overlay.playerId;
+        const revealIndex = state.players.findIndex((player) => player.id === currentPlayerId);
+        const nextPlayer = state.players[revealIndex + 1];
+        if (nextPlayer) {
+            openRevealOverlay(nextPlayer.id);
+            renderAll();
+            return;
+        }
+        beginRoundCollection(false);
+        renderAll();
+    }
+
+    function finishIfNeeded() {
+        const activePlayers = getActivePlayers();
+        if (activePlayers.length === 0) {
+            state.winnerId = null;
+            state.isDraw = true;
+            state.lastAction = {
+                tone: "draw",
+                text: `Round ${state.roundNumber} ended in a draw. Everyone was eliminated in the same resolution.`,
+            };
+            addLog("Everyone was eliminated at once. The round ends in a draw.", "draw");
+            state.overlay = { mode: "draw" };
+            return true;
+        }
+        if (activePlayers.length === 1) {
+            state.winnerId = activePlayers[0].id;
+            state.isDraw = false;
+            setCurrentPlayerById(activePlayers[0].id);
+            state.lastAction = {
+                tone: "win",
+                text: `${activePlayers[0].name} is the last player standing.`,
+            };
+            addLog(`${activePlayers[0].name} wins the round.`, "win");
+            state.overlay = { mode: "winner", playerId: activePlayers[0].id };
+            return true;
+        }
+        state.winnerId = null;
+        state.isDraw = false;
+        return false;
+    }
+
+    function renderPlayerInputs(count, existingNames = []) {
+        elements.playerInputs.innerHTML = Array.from({ length: count }, (_, index) => {
+            const value = escapeHtml(existingNames[index] || `Player ${index + 1}`);
+            return `
+                <label class="player-input">
+                    <span>Player ${index + 1}</span>
+                    <input type="text" name="player_name_${index + 1}" value="${value}" maxlength="24" />
+                </label>
+            `;
+        }).join("");
+    }
+
+    function getSetupNames() {
+        return Array.from(elements.playerInputs.querySelectorAll("input")).map((input) => input.value);
+    }
+
+    function buildHairShapes(card) {
+        const hairColor = card.palette?.hair || "#475569";
+        const style = card.traits?.hair_style || "short";
+        if (style === "bald") {
+            return {
+                back: "",
+                front: `<ellipse cx="100" cy="56" rx="16" ry="8" fill="#ffffff" fill-opacity="0.18"></ellipse>`,
+            };
+        }
+        if (style === "long") {
+            return {
+                back: `
+                    <path d="M50 96 Q50 42 100 38 Q150 42 150 96 L150 164 Q134 180 122 180 L118 126 Q100 132 82 126 L78 180 Q66 180 50 164 Z" fill="${hairColor}"></path>
+                `,
+                front: `
+                    <path d="M58 84 Q86 46 142 80 Q126 70 100 72 Q74 70 58 84 Z" fill="${hairColor}"></path>
+                `,
+            };
+        }
+        if (style === "curly") {
+            return {
+                back: `
+                    <g fill="${hairColor}">
+                        <circle cx="66" cy="74" r="16"></circle>
+                        <circle cx="88" cy="60" r="18"></circle>
+                        <circle cx="112" cy="58" r="18"></circle>
+                        <circle cx="134" cy="72" r="16"></circle>
+                        <circle cx="58" cy="96" r="14"></circle>
+                        <circle cx="142" cy="98" r="14"></circle>
+                        <circle cx="82" cy="84" r="16"></circle>
+                        <circle cx="118" cy="84" r="16"></circle>
+                    </g>
+                `,
+                front: `
+                    <g fill="${hairColor}">
+                        <circle cx="76" cy="78" r="9"></circle>
+                        <circle cx="100" cy="72" r="10"></circle>
+                        <circle cx="124" cy="78" r="9"></circle>
+                    </g>
+                `,
+            };
+        }
+        return {
+            back: `
+                <path d="M58 90 Q58 48 100 44 Q142 48 142 90 L142 118 Q126 92 100 92 Q74 92 58 118 Z" fill="${hairColor}"></path>
+            `,
+            front: `
+                <path d="M58 86 Q100 38 142 86 L142 90 Q120 76 100 76 Q80 76 58 90 Z" fill="${hairColor}"></path>
+            `,
+        };
+    }
+
+    function buildPortraitMarkup(card) {
+        if (card.avatar_url) {
+            return `<img src="${escapeHtml(card.avatar_url)}" alt="${escapeHtml(card.name)}" loading="lazy" />`;
+        }
+
+        const palette = card.palette || {};
+        const skin = palette.skin || "#e8bf9d";
+        const shirt = palette.shirt || "#2563eb";
+        const accent = palette.accent || "#60a5fa";
+        const background = palette.bg || "#f8fafc";
+        const hair = buildHairShapes(card);
+        const hatSvg = card.traits?.hat ? `
+            <g fill="${accent}">
+                <rect x="60" y="42" width="80" height="26" rx="13"></rect>
+                <rect x="44" y="66" width="112" height="12" rx="6"></rect>
+            </g>
+        ` : "";
+        const glassesSvg = card.traits?.glasses ? `
+            <g fill="none" stroke="#1f2937" stroke-width="4">
+                <rect x="67" y="88" width="28" height="22" rx="8"></rect>
+                <rect x="105" y="88" width="28" height="22" rx="8"></rect>
+                <line x1="95" y1="99" x2="105" y2="99"></line>
+            </g>
+        ` : "";
+        const earringsSvg = card.traits?.earrings ? `
+            <g fill="${accent}">
+                <circle cx="56" cy="116" r="4"></circle>
+                <circle cx="144" cy="116" r="4"></circle>
+            </g>
+        ` : "";
+        const facialHairSvg = card.traits?.facial_hair ? `
+            <g fill="${palette.hair || "#334155"}">
+                <path d="M82 128 Q100 140 118 128 Q112 146 100 148 Q88 146 82 128 Z"></path>
+                <path d="M82 120 Q100 130 118 120 Q100 126 82 120 Z"></path>
+            </g>
+        ` : "";
+        const mouthSvg = card.traits?.smile
+            ? `<path d="M84 126 Q100 138 116 126" fill="none" stroke="#92400e" stroke-width="4" stroke-linecap="round"></path>`
+            : `<line x1="86" y1="128" x2="114" y2="128" stroke="#92400e" stroke-width="4" stroke-linecap="round"></line>`;
+
+        return `
+            <svg class="portrait-svg" viewBox="0 0 200 210" aria-hidden="true" focusable="false">
+                <rect width="200" height="210" rx="24" fill="${background}"></rect>
+                <circle cx="152" cy="42" r="32" fill="${accent}" fill-opacity="0.18"></circle>
+                <ellipse cx="100" cy="188" rx="66" ry="34" fill="${shirt}"></ellipse>
+                <rect x="88" y="136" width="24" height="24" rx="10" fill="${skin}"></rect>
+                ${hair.back}
+                <ellipse cx="100" cy="102" rx="44" ry="50" fill="${skin}"></ellipse>
+                ${earringsSvg}
+                ${hair.front}
+                ${hatSvg}
+                <circle cx="84" cy="98" r="5" fill="#1f2937"></circle>
+                <circle cx="116" cy="98" r="5" fill="#1f2937"></circle>
+                ${glassesSvg}
+                <path d="M100 100 L95 114 L104 114" fill="none" stroke="#9a6a42" stroke-width="4" stroke-linecap="round"></path>
+                ${mouthSvg}
+                ${facialHairSvg}
+            </svg>
+        `;
+    }
+
+    function renderOverlayCard(card) {
+        return `
+            <div class="overlay-card-preview">
+                <div class="suspect-card is-answer">
+                    <div class="suspect-art">${buildPortraitMarkup(card)}</div>
+                    <div class="suspect-meta">
+                        <span class="suspect-name">${escapeHtml(card.name)}</span>
+                        <span class="suspect-status">Secret person</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function queueCurrentAction() {
+        const currentPlayer = getCurrentPlayer();
+        const target = getCurrentTarget();
+        if (!currentPlayer || !target || state.winnerId || state.isDraw) {
+            return;
+        }
+
+        const actionType = elements.actionTypeSelect.value || "ask";
+        const action = {
+            playerId: currentPlayer.id,
+            targetId: target.id,
+            type: actionType,
+        };
+
+        if (actionType === "ask") {
+            const questionId = elements.questionSelect.value;
+            if (!questionId) {
+                return;
+            }
+            action.questionId = questionId;
+        } else {
+            const guessCardId = elements.guessSelect.value;
+            if (!guessCardId) {
+                return;
+            }
+            action.guessCardId = guessCardId;
+        }
+
+        state.queuedActions[currentPlayer.id] = action;
+        state.lastAction = {
+            tone: "info",
+            text: `${getQueuedCount()} of ${getActivePlayers().length} hidden actions are locked in for round ${state.roundNumber}.`,
+        };
+
+        const nextPlayer = setCurrentToFirstUnsubmitted();
+        resetComposer();
+        if (nextPlayer) {
+            openQueueOverlay(nextPlayer.id);
+            renderAll();
+            return;
+        }
+        resolveRound();
+    }
+
+    function resolveRound() {
+        const activeSnapshot = getActivePlayers().map((player) => player.id);
+        const questionResults = [];
+        const guessResults = [];
+        const eliminations = new Map();
+
+        activeSnapshot.forEach((playerId) => {
+            const action = getQueuedAction(playerId);
+            if (!action || action.type !== "ask") {
+                return;
+            }
+            const actor = getPlayer(playerId);
+            const target = getPlayer(action.targetId);
+            const board = getBoard(playerId, action.targetId);
+            const question = QUESTION_BANK.find((item) => item.id === action.questionId);
+            if (!actor || !target || !board || !question) {
+                return;
+            }
+
+            const answerYes = question.test(getCard(target.secretId));
+            const nextEliminated = new Set(board.eliminatedIds);
+            STOCK_CARDS.forEach((card) => {
+                const matches = question.test(card);
+                if ((answerYes && !matches) || (!answerYes && matches)) {
+                    nextEliminated.add(card.id);
+                }
+            });
+            board.eliminatedIds = Array.from(nextEliminated);
+            if (!board.askedQuestionIds.includes(question.id)) {
+                board.askedQuestionIds.push(question.id);
+            }
+
+            questionResults.push({
+                tone: answerYes ? "yes" : "no",
+                text: `${actor.name} asked ${target.name}, "${question.label}" Answer: ${answerYes ? "Yes" : "No"}.`,
+            });
+        });
+
+        activeSnapshot.forEach((playerId) => {
+            const action = getQueuedAction(playerId);
+            if (!action || action.type !== "guess") {
+                return;
+            }
+            const actor = getPlayer(playerId);
+            const target = getPlayer(action.targetId);
+            const guessedCard = getCard(action.guessCardId);
+            if (!actor || !target || !guessedCard) {
+                return;
+            }
+
+            if (guessedCard.id === target.secretId) {
+                if (!eliminations.has(target.id)) {
+                    eliminations.set(target.id, { sourceId: actor.id });
+                }
+                guessResults.push({
+                    tone: "yes",
+                    text: `${actor.name} correctly guessed ${target.name}'s person: ${guessedCard.name}.`,
+                });
+            } else {
+                if (!eliminations.has(actor.id)) {
+                    eliminations.set(actor.id, { sourceId: target.id });
+                }
+                guessResults.push({
+                    tone: "no",
+                    text: `${actor.name} guessed ${guessedCard.name} for ${target.name} and missed.`,
+                });
+            }
+        });
+
+        eliminations.forEach((details, playerId) => {
+            const player = getPlayer(playerId);
+            if (!player) {
+                return;
+            }
+            player.active = false;
+            player.revealed = true;
+            if (!player.eliminatedBy) {
+                player.eliminatedBy = details.sourceId;
+            }
+        });
+
+        state.players.forEach((player) => ensureSelectedTarget(player.id));
+
+        const combinedResults = [...questionResults, ...guessResults];
+        const summaryParts = [];
+        if (questionResults.length) {
+            summaryParts.push(`${questionResults.length} question${questionResults.length === 1 ? "" : "s"}`);
+        }
+        if (guessResults.length) {
+            summaryParts.push(`${guessResults.length} guess${guessResults.length === 1 ? "" : "es"}`);
+        }
+        state.lastAction = {
+            tone: "info",
+            text: summaryParts.length
+                ? `Round ${state.roundNumber} resolved: ${summaryParts.join(" and ")} checked together.`
+                : `Round ${state.roundNumber} resolved.`,
+        };
+        addLog(state.lastAction.text, "info");
+        for (let index = combinedResults.length - 1; index >= 0; index -= 1) {
+            addLog(combinedResults[index].text, combinedResults[index].tone);
+        }
+
+        if (finishIfNeeded()) {
+            state.queuedActions = {};
+            renderAll();
+            return;
+        }
+
+        beginRoundCollection(true);
+        renderAll();
+    }
+
+    function handleBoardToggle(cardId) {
+        const currentPlayer = getCurrentPlayer();
+        const target = getCurrentTarget();
+        if (!currentPlayer || !target || state.winnerId || state.isDraw) {
+            return;
+        }
+        const board = getBoard(currentPlayer.id, target.id);
+        if (!board) {
+            return;
+        }
+        const nextEliminated = new Set(board.eliminatedIds);
+        if (nextEliminated.has(cardId)) {
+            nextEliminated.delete(cardId);
+        } else {
+            nextEliminated.add(cardId);
+        }
+        board.eliminatedIds = Array.from(nextEliminated);
+        renderAll();
+    }
+
+    function resetCurrentBoard() {
+        const currentPlayer = getCurrentPlayer();
+        const target = getCurrentTarget();
+        if (!currentPlayer || !target || state.winnerId || state.isDraw) {
+            return;
+        }
+        const board = getBoard(currentPlayer.id, target.id);
+        if (!board) {
+            return;
+        }
+        board.eliminatedIds = [];
+        board.askedQuestionIds = [];
+        state.lastAction = {
+            tone: "info",
+            text: `${currentPlayer.name} cleared the private board for ${target.name}.`,
+        };
+        renderAll();
+    }
+
+    function renderRoster() {
+        if (!state.players.length) {
+            elements.activeCountPill.textContent = "No round";
+            elements.rosterList.innerHTML = `<p class="panel-placeholder">Deal the cards to start a round.</p>`;
+            return;
+        }
+
+        const currentPlayer = getCurrentPlayer();
+        const activePlayers = getActivePlayers();
+        const queuedCount = getQueuedCount();
+        elements.activeCountPill.textContent = `${activePlayers.length} active / ${queuedCount} queued`;
+        elements.rosterList.innerHTML = state.players.map((player, index) => {
+            const secretCard = getCard(player.secretId);
+            const isCurrent = currentPlayer && currentPlayer.id === player.id && !state.winnerId && !state.isDraw;
+            const hasQueued = Boolean(getQueuedAction(player.id));
+            const classes = [
+                "roster-item",
+                isCurrent ? "is-current" : "",
+                hasQueued && player.active ? "is-queued" : "",
+                player.active ? "" : "is-eliminated",
+            ].filter(Boolean).join(" ");
+            let status = "Waiting to queue";
+            if (!player.active) {
+                status = "Out of the round";
+            } else if (hasQueued) {
+                status = "Hidden action locked";
+            } else if (isCurrent) {
+                status = "Queueing now";
+            }
+            const meta = player.revealed
+                ? `Secret: ${escapeHtml(secretCard?.name || "Unknown")}`
+                : hasQueued
+                    ? "Action queued"
+                    : "Secret hidden";
+            return `
+                <div class="${classes}">
+                    <div class="roster-main">
+                        <span class="roster-badge">${index + 1}</span>
+                        <div>
+                            <strong>${escapeHtml(player.name)}</strong>
+                            <span>${status}</span>
+                        </div>
+                    </div>
+                    <div class="roster-meta">${meta}</div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function renderLog() {
+        if (!state.log.length) {
+            elements.logList.innerHTML = `<p class="panel-placeholder">Questions, answers, and knockouts will show up here.</p>`;
+            return;
+        }
+
+        elements.logList.innerHTML = state.log.slice(0, 12).map((entry) => `
+            <div class="log-item">
+                <div>
+                    <strong>${entry.tone === "win" || entry.tone === "draw" ? "Round update" : "Resolution note"}</strong>
+                    <span>${escapeHtml(entry.text)}</span>
+                </div>
+                <span class="log-chip ${entry.tone}">${entry.tone}</span>
+            </div>
+        `).join("");
+    }
+
+    function renderControls() {
+        syncActionModeUI();
+
+        if (!state.players.length) {
+            elements.turnPlayerName.textContent = "No round active";
+            elements.turnStatusCopy.textContent = "Choose players, deal the deck, and hand the screen around so everyone can queue one hidden action.";
+            elements.targetTabs.innerHTML = "";
+            elements.questionSelect.innerHTML = "";
+            elements.guessSelect.innerHTML = "";
+            elements.queueBtn.disabled = true;
+            elements.resetBoardBtn.disabled = true;
+            elements.passDeviceBtn.disabled = true;
+            elements.peekSecretBtn.disabled = true;
+            elements.redealBtn.disabled = true;
+            elements.boardSummary.textContent = "Private boards are tracked separately for each opponent.";
+            elements.answerBanner.className = "answer-banner answer-banner-neutral";
+            elements.answerBanner.textContent = "Each active player queues one hidden Ask or Guess. Questions resolve first, then guesses resolve together.";
+            return;
+        }
+
+        const currentPlayer = getCurrentPlayer();
+        const target = getCurrentTarget();
+        const activePlayers = getActivePlayers();
+        const activeOpponents = currentPlayer ? getActiveOpponents(currentPlayer.id) : [];
+        const selectedTargetId = target?.id || "";
+        const board = currentPlayer && target ? getBoard(currentPlayer.id, target.id) : null;
+        const eliminatedIds = new Set(board?.eliminatedIds || []);
+        const remainingCards = STOCK_CARDS.filter((card) => !eliminatedIds.has(card.id));
+        const previousQuestionId = elements.questionSelect.value || QUESTION_BANK[0]?.id || "";
+        const previousGuessId = elements.guessSelect.value;
+        const queuedCount = getQueuedCount();
+
+        if (state.winnerId) {
+            elements.turnPlayerName.textContent = `${getPlayer(state.winnerId)?.name || "Winner"} wins`;
+        } else if (state.isDraw) {
+            elements.turnPlayerName.textContent = `Round ${state.roundNumber} ends in a draw`;
+        } else {
+            elements.turnPlayerName.textContent = `${currentPlayer?.name || "Current player"} is queueing round ${state.roundNumber}`;
+        }
+        elements.turnStatusCopy.textContent = target
+            ? `${queuedCount} of ${activePlayers.length} hidden actions are locked in. ${currentPlayer?.name || "Current player"}, choose Ask or Guess against ${target.name}.`
+            : "No valid targets remain.";
+
+        elements.targetTabs.innerHTML = activeOpponents.map((player) => `
+            <button type="button" class="target-tab ${player.id === selectedTargetId ? "is-active" : ""}" data-target-id="${player.id}">
+                ${escapeHtml(player.name)}
+            </button>
+        `).join("");
+
+        elements.questionSelect.innerHTML = QUESTION_BANK.map((question) => `
+            <option value="${question.id}" ${question.id === previousQuestionId ? "selected" : ""}>${escapeHtml(question.label)}</option>
+        `).join("");
+
+        elements.guessSelect.innerHTML = remainingCards.map((card) => `
+            <option value="${card.id}" ${card.id === previousGuessId ? "selected" : ""}>${escapeHtml(card.name)}</option>
+        `).join("");
+
+        if (!elements.guessSelect.value && remainingCards[0]) {
+            elements.guessSelect.value = remainingCards[0].id;
+        }
+
+        const summaryParts = [];
+        if (target) {
+            summaryParts.push(`${remainingCards.length} suspects left against ${target.name}.`);
+        }
+        if (board) {
+            summaryParts.push(`${board.askedQuestionIds.length} board filters applied.`);
+        }
+        summaryParts.push(`${queuedCount} of ${activePlayers.length} actions queued this round.`);
+        elements.boardSummary.textContent = summaryParts.join(" ") || "Private boards are tracked separately for each opponent.";
+
+        const bannerTone = state.lastAction?.tone || "neutral";
+        elements.answerBanner.className = `answer-banner answer-banner-${bannerTone === "info" ? "neutral" : bannerTone}`;
+        elements.answerBanner.textContent = state.lastAction?.text || "Each active player queues one hidden Ask or Guess. Questions resolve first, then guesses resolve together.";
+
+        syncActionModeUI();
+        const actionMode = elements.actionTypeSelect.value || "ask";
+        const disabled = !target || Boolean(state.winnerId) || Boolean(state.isDraw) || Boolean(getQueuedAction(currentPlayer?.id || ""));
+        elements.queueBtn.disabled = disabled || (actionMode === "guess" && !remainingCards.length);
+        elements.resetBoardBtn.disabled = disabled;
+        elements.passDeviceBtn.disabled = Boolean(state.winnerId) || Boolean(state.isDraw) || !currentPlayer;
+        elements.peekSecretBtn.disabled = Boolean(state.winnerId) || Boolean(state.isDraw) || !currentPlayer;
+        elements.redealBtn.disabled = false;
+    }
+
+    function renderBoard() {
+        if (!state.players.length) {
+            elements.boardTitle.textContent = "Face Cards";
+            elements.suspectCountPill.textContent = `${STOCK_CARDS.length} suspects`;
+            elements.boardGrid.innerHTML = `
+                <div class="board-placeholder">
+                    <p>The full deck will appear here after the round is dealt.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const currentPlayer = getCurrentPlayer();
+        const target = getCurrentTarget();
+        if (!currentPlayer || !target) {
+            elements.boardTitle.textContent = "Board Complete";
+            elements.suspectCountPill.textContent = "No targets";
+            elements.boardGrid.innerHTML = `
+                <div class="board-placeholder">
+                    <p>No live opponent board is available right now.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const board = getBoard(currentPlayer.id, target.id);
+        const eliminatedIds = new Set(board?.eliminatedIds || []);
+        const remainingCount = STOCK_CARDS.filter((card) => !eliminatedIds.has(card.id)).length;
+        elements.boardTitle.textContent = `${currentPlayer.name} vs ${target.name}`;
+        elements.suspectCountPill.textContent = `${remainingCount} suspects`;
+
+        elements.boardGrid.innerHTML = STOCK_CARDS.map((card) => {
+            const isFlipped = eliminatedIds.has(card.id);
+            const isAnswer = target.revealed && target.secretId === card.id;
+            return `
+                <button type="button" class="suspect-card ${isFlipped ? "is-flipped" : ""} ${isAnswer ? "is-answer" : ""}" data-card-id="${card.id}" aria-pressed="${isFlipped ? "true" : "false"}">
+                    <div class="suspect-art">${buildPortraitMarkup(card)}</div>
+                    <div class="suspect-meta">
+                        <span class="suspect-name">${escapeHtml(card.name)}</span>
+                        <span class="suspect-status">${isAnswer ? "Revealed" : (isFlipped ? "Flipped" : "Still in play")}</span>
+                    </div>
+                </button>
+            `;
+        }).join("");
+    }
+
+    function renderOverlay() {
+        const overlay = state.overlay || { mode: "idle" };
+        if (overlay.mode === "idle") {
+            elements.overlay.classList.add("hidden");
+            return;
+        }
+
+        const player = getPlayer(overlay.playerId);
+        const card = player ? getCard(player.secretId) : null;
+        elements.overlay.classList.remove("hidden");
+
+        if (overlay.mode === "reveal" && player && card) {
+            const revealNumber = state.players.findIndex((entry) => entry.id === player.id) + 1;
+            elements.overlayKicker.textContent = `Secret Deal ${revealNumber} of ${state.players.length}`;
+            elements.overlayTitle.textContent = `Pass the screen to ${player.name}`;
+            elements.overlayCopy.textContent = overlay.revealed
+                ? "Memorize your secret person, then continue so the next player can queue a hidden action."
+                : `Only ${player.name} should look at the next card.`;
+            elements.overlayBody.innerHTML = overlay.revealed
+                ? renderOverlayCard(card)
+                : `
+                    <div class="overlay-shield">
+                        <div class="overlay-shield-mark">Secret Card</div>
+                        <p>Tap reveal when ${escapeHtml(player.name)} is ready.</p>
+                    </div>
+                `;
+            elements.overlayActions.innerHTML = overlay.revealed
+                ? `<button type="button" class="btn-primary" data-overlay-action="continue-reveal">Continue</button>`
+                : `<button type="button" class="btn-primary" data-overlay-action="reveal-secret">Reveal My Card</button>`;
+            return;
+        }
+
+        if (overlay.mode === "queue" && player) {
+            const opponentNames = getActiveOpponents(player.id).map((opponent) => opponent.name).join(", ");
+            elements.overlayKicker.textContent = `Round ${state.roundNumber}`;
+            elements.overlayTitle.textContent = `${player.name}, queue your action`;
+            elements.overlayCopy.textContent = opponentNames
+                ? `Active opponents: ${opponentNames}. Choose one target, then lock in an Ask or Guess.`
+                : "No active opponents remain.";
+            elements.overlayBody.innerHTML = `
+                <div class="overlay-shield">
+                    <div class="overlay-shield-mark">Hidden Queue</div>
+                    <p>Make sure only ${escapeHtml(player.name)} can see the screen while they set their action.</p>
+                </div>
+            `;
+            elements.overlayActions.innerHTML = `<button type="button" class="btn-primary" data-overlay-action="close-overlay">Begin Queueing</button>`;
+            return;
+        }
+
+        if (overlay.mode === "peek" && player && card) {
+            elements.overlayKicker.textContent = "Secret Peek";
+            elements.overlayTitle.textContent = `${player.name}'s hidden person`;
+            elements.overlayCopy.textContent = "Double-check your person, then hide the card before handing the device back.";
+            elements.overlayBody.innerHTML = renderOverlayCard(card);
+            elements.overlayActions.innerHTML = `<button type="button" class="btn-primary" data-overlay-action="close-overlay">Hide Card</button>`;
+            return;
+        }
+
+        if (overlay.mode === "winner" && player && card) {
+            elements.overlayKicker.textContent = "Round Winner";
+            elements.overlayTitle.textContent = `${player.name} wins`;
+            elements.overlayCopy.textContent = "Everyone else has been knocked out. Deal again to start a fresh round with the same table.";
+            elements.overlayBody.innerHTML = renderOverlayCard(card);
+            elements.overlayActions.innerHTML = `
+                <button type="button" class="btn-outline" data-overlay-action="close-overlay">Review Board</button>
+                <button type="button" class="btn-primary" data-overlay-action="deal-again">Deal Again</button>
+            `;
+            return;
+        }
+
+        if (overlay.mode === "draw") {
+            elements.overlayKicker.textContent = "Round Draw";
+            elements.overlayTitle.textContent = "Everyone got knocked out";
+            elements.overlayCopy.textContent = "The queued guesses wiped out the whole table. Deal again to start a fresh round.";
+            elements.overlayBody.innerHTML = `
+                <div class="overlay-shield">
+                    <div class="overlay-shield-mark">Draw</div>
+                    <p>Questions resolved together, then the guesses took everyone out.</p>
+                </div>
+            `;
+            elements.overlayActions.innerHTML = `
+                <button type="button" class="btn-outline" data-overlay-action="close-overlay">Review Board</button>
+                <button type="button" class="btn-primary" data-overlay-action="deal-again">Deal Again</button>
+            `;
+            return;
+        }
+
+        elements.overlayKicker.textContent = "";
+        elements.overlayTitle.textContent = "";
+        elements.overlayCopy.textContent = "";
+        elements.overlayBody.innerHTML = "";
+        elements.overlayActions.innerHTML = "";
+    }
+
+    function renderAll() {
+        renderRoster();
+        renderLog();
+        renderControls();
+        renderBoard();
+        renderOverlay();
+    }
+
+    elements.playerCount.addEventListener("change", () => {
+        const nextCount = Number(elements.playerCount.value || 2);
+        renderPlayerInputs(nextCount, getSetupNames());
+    });
+
+    elements.setupForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        startGame(getSetupNames());
+    });
+
+    elements.actionTypeSelect.addEventListener("change", () => {
+        syncActionModeUI();
+        renderAll();
+    });
+
+    elements.targetTabs.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-target-id]");
+        const currentPlayer = getCurrentPlayer();
+        if (!button || !currentPlayer) {
+            return;
+        }
+        state.selectedTargetByPlayer[currentPlayer.id] = button.dataset.targetId;
+        renderAll();
+    });
+
+    elements.queueBtn.addEventListener("click", queueCurrentAction);
+    elements.resetBoardBtn.addEventListener("click", resetCurrentBoard);
+    elements.passDeviceBtn.addEventListener("click", () => {
+        const currentPlayer = getCurrentPlayer();
+        if (currentPlayer && !state.winnerId && !state.isDraw) {
+            openQueueOverlay(currentPlayer.id);
+            renderAll();
+        }
+    });
+    elements.peekSecretBtn.addEventListener("click", () => {
+        const currentPlayer = getCurrentPlayer();
+        if (currentPlayer && !state.winnerId && !state.isDraw) {
+            openPeekOverlay(currentPlayer.id);
+            renderAll();
+        }
+    });
+    elements.redealBtn.addEventListener("click", () => {
+        const names = state.players.length ? state.players.map((player) => player.name) : getSetupNames();
+        if (names.length >= 2) {
+            startGame(names);
+        }
+    });
+
+    elements.boardGrid.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-card-id]");
+        if (!button) {
+            return;
+        }
+        handleBoardToggle(button.dataset.cardId);
+    });
+
+    elements.overlay.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-overlay-action]");
+        if (!button) {
+            return;
+        }
+        const action = button.dataset.overlayAction;
+        if (action === "reveal-secret") {
+            state.overlay = { ...state.overlay, revealed: true };
+        } else if (action === "continue-reveal") {
+            advanceReveal();
+            return;
+        } else if (action === "deal-again") {
+            startGame(state.players.map((player) => player.name));
+            return;
+        } else if (action === "close-overlay") {
+            hideOverlay();
+        }
+        renderAll();
+    });
+
+    renderPlayerInputs(2, ["Player 1", "Player 2"]);
+    resetComposer();
+    renderAll();
+</script>
+{% endblock %}

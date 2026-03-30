@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import Annotated, Optional
+from datetime import timezone
 import os
 import platform
 import io
@@ -15,6 +16,7 @@ from urllib.parse import urlparse
 from .. import models, database, permissions, schemas, server_utils, server_models, server_identity, crud_users
 from ..chat_permissions import ALL_PERMISSIONS, CHAT_PERMISSION_BITS, DEFAULT_MEMBER_PERMISSIONS
 from ..module_manager import ModuleManager, ModuleManagerError
+from ..client_builder import build_client, can_build_on_this_host, build_status_message
 from . import auth
 from ..config import settings
 from sqlalchemy import func, desc, and_, or_, delete, insert
@@ -30,6 +32,16 @@ router = APIRouter(
 
 templates = Jinja2Templates(directory=str(settings.BASE_DIR / "templates"))
 logger = logging.getLogger(__name__)
+
+
+def _format_datetime_utc(value) -> str:
+    if not value:
+        return "—"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    else:
+        value = value.astimezone(timezone.utc)
+    return value.strftime("%Y-%m-%d %H:%M UTC")
 
 
 def _normalize_external_username(raw: Optional[str], peer_server_id: Optional[str]) -> str:
@@ -361,10 +373,13 @@ def _build_windows_client_package_response(
 ) -> Response:
     exe_path = settings.BASE_DIR / "dist" / "HOMEPAGEClient-windows.exe"
     if not exe_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="Windows client executable not found. Build it first with PyInstaller (HOMEPAGEClient-windows.spec).",
-        )
+        # Attempt auto-build
+        build_client("windows")
+        if not exe_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=build_status_message("windows"),
+            )
 
     seed_text = json.dumps(seed, indent=2)
     readme = (
@@ -403,10 +418,13 @@ def _build_linux_client_package_response(
     """Build a Linux client package (zip containing tar.gz + seed config)."""
     tarball_path = settings.BASE_DIR / "dist" / "HomepageClient-linux-x86_64.tar.gz"
     if not tarball_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="Linux client tar.gz not found. Build it first with: cd client && npm run dist:linux",
-        )
+        # Attempt auto-build
+        build_client("linux")
+        if not tarball_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=build_status_message("linux"),
+            )
 
     seed_text = json.dumps(seed, indent=2)
     readme = (
@@ -510,9 +528,14 @@ def _build_macos_client_package_response(
             headers={"Content-Disposition": f'attachment; filename="homepage-client-macos-{suffix}.zip"'},
         )
 
+    # Attempt auto-build
+    build_client("macos")
+    # Re-check after build
+    if dmg_path.exists() or (app_dir.exists() and app_dir.is_dir()):
+        return _build_macos_client_package_response(seed, invite_text, audience_label)
     raise HTTPException(
         status_code=404,
-        detail="macOS client not found. Build it first on a Mac with: ./build_client_macos.sh",
+        detail=build_status_message("macos"),
     )
 
 
@@ -880,6 +903,9 @@ async def server_settings_page(
     except Exception:
         join_requests = []
     pending_join_count = sum(1 for r in join_requests if r.status == "pending")
+    join_request_created_display = {
+        r.id: _format_datetime_utc(r.created_at) for r in join_requests
+    }
 
     password_reset_requests = []
     try:
@@ -891,6 +917,9 @@ async def server_settings_page(
         password_reset_requests = pw_res.scalars().all()
     except Exception:
         password_reset_requests = []
+    password_reset_created_display = {
+        r.id: _format_datetime_utc(r.created_at) for r in password_reset_requests
+    }
 
     return templates.TemplateResponse(
         request=request,
@@ -901,7 +930,9 @@ async def server_settings_page(
             "users": users,
             "join_requests": join_requests,
             "pending_join_count": pending_join_count,
+            "join_request_created_display": join_request_created_display,
             "password_reset_requests": password_reset_requests,
+            "password_reset_created_display": password_reset_created_display,
             "local_server_id": local_server_id,
             "chat_module_enabled": chat_module_enabled,
             "suggested_secure_local_domain": suggested_secure_local_domain,
@@ -1212,6 +1243,11 @@ async def download_windows_client_package(
     db: AsyncSession = Depends(database.get_db),
 ):
     permissions.require_admin(current_user)
+    from ..client_packager import prebuilt_path
+    _pb = prebuilt_path("windows", "lan")
+    if _pb.exists():
+        from fastapi.responses import FileResponse
+        return FileResponse(_pb, filename=_pb.name, media_type="application/zip")
     server_settings = await server_utils.get_server_settings(db)
     app_http_port = (os.getenv("APP_HTTP_PORT", "8001") or "8001").strip()
     app_https_port = (os.getenv("APP_HTTPS_PORT", "8443") or "8443").strip()
@@ -1247,6 +1283,11 @@ async def download_windows_client_package_external(
     db: AsyncSession = Depends(database.get_db),
 ):
     permissions.require_admin(current_user)
+    from ..client_packager import prebuilt_path
+    _pb = prebuilt_path("windows", "external")
+    if _pb.exists():
+        from fastapi.responses import FileResponse
+        return FileResponse(_pb, filename=_pb.name, media_type="application/zip")
     server_settings = await server_utils.get_server_settings(db)
     app_http_port = (os.getenv("APP_HTTP_PORT", "8001") or "8001").strip()
     app_https_port = (os.getenv("APP_HTTPS_PORT", "8443") or "8443").strip()
@@ -1326,6 +1367,12 @@ async def download_linux_client_package_lan(
     current_user: Annotated[models.User, Depends(auth.get_current_user)],
     db: AsyncSession = Depends(database.get_db),
 ):
+    from ..client_packager import prebuilt_path
+    _pb = prebuilt_path("linux", "lan")
+    if _pb.exists():
+        permissions.require_admin(current_user)
+        from fastapi.responses import FileResponse
+        return FileResponse(_pb, filename=_pb.name, media_type="application/zip")
     seed, invite_text = await _build_portable_package_args(request, current_user, db, "lan")
     return _build_linux_client_package_response(seed, invite_text, "LAN")
 
@@ -1336,6 +1383,12 @@ async def download_linux_client_package_external(
     current_user: Annotated[models.User, Depends(auth.get_current_user)],
     db: AsyncSession = Depends(database.get_db),
 ):
+    from ..client_packager import prebuilt_path
+    _pb = prebuilt_path("linux", "external")
+    if _pb.exists():
+        permissions.require_admin(current_user)
+        from fastapi.responses import FileResponse
+        return FileResponse(_pb, filename=_pb.name, media_type="application/zip")
     seed, invite_text = await _build_portable_package_args(request, current_user, db, "external")
     return _build_linux_client_package_response(seed, invite_text, "Off-network")
 
@@ -1346,6 +1399,12 @@ async def download_macos_client_package_lan(
     current_user: Annotated[models.User, Depends(auth.get_current_user)],
     db: AsyncSession = Depends(database.get_db),
 ):
+    from ..client_packager import prebuilt_path
+    _pb = prebuilt_path("macos", "lan")
+    if _pb.exists():
+        permissions.require_admin(current_user)
+        from fastapi.responses import FileResponse
+        return FileResponse(_pb, filename=_pb.name, media_type="application/zip")
     seed, invite_text = await _build_portable_package_args(request, current_user, db, "lan")
     return _build_macos_client_package_response(seed, invite_text, "LAN")
 
@@ -1356,6 +1415,12 @@ async def download_macos_client_package_external(
     current_user: Annotated[models.User, Depends(auth.get_current_user)],
     db: AsyncSession = Depends(database.get_db),
 ):
+    from ..client_packager import prebuilt_path
+    _pb = prebuilt_path("macos", "external")
+    if _pb.exists():
+        permissions.require_admin(current_user)
+        from fastapi.responses import FileResponse
+        return FileResponse(_pb, filename=_pb.name, media_type="application/zip")
     seed, invite_text = await _build_portable_package_args(request, current_user, db, "external")
     return _build_macos_client_package_response(seed, invite_text, "Off-network")
 

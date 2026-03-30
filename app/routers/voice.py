@@ -170,7 +170,7 @@ async def room_page(
     ws_url = f"{ws_scheme}://{request.headers.get('host')}/voice/ws/{room.slug}"
     ice_servers = voice_cfg.get(
         "ice_servers",
-        [{"urls": ["stun:stun.l.google.com:19302"]}],
+        [],  # No external STUN/TURN by default — use only the local coturn server
     )
     return templates.TemplateResponse(
         request=request,

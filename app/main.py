@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 import os
+import subprocess
+import shutil
 import time
 import ipaddress
 import socket
@@ -28,6 +30,8 @@ print(f"Enabled optional modules: {sorted(_loaded_modules) if _loaded_modules el
 calendar = None
 games = None
 wikipedia = None
+maps = None
+family_photos = None
 discussions = None
 voice = None
 mail = None
@@ -41,6 +45,10 @@ if "games" in _loaded_modules:
     from .routers import games
 if "wikipedia" in _loaded_modules:
     from .routers import wikipedia
+if "maps" in _loaded_modules:
+    from .routers import maps
+if "family_photos" in _loaded_modules:
+    from .routers import family_photos
 if "discussions" in _loaded_modules:
     from .routers import discussions
 if "voice" in _loaded_modules:
@@ -83,6 +91,8 @@ _OPTIONAL_PREFIX_MAP = {
     "calendar":    ["/calendar"],
     "games":       ["/games"],
     "wikipedia":   ["/wikipedia"],
+    "maps":        ["/maps"],
+    "family_photos": ["/family-photos"],
     "discussions": ["/discussions"],
     "voice":       ["/voice"],
     "mail":        ["/mail"],
@@ -214,6 +224,30 @@ async def lifespan(app: FastAPI):
     print("Starting up...")
     local_server_id = server_identity.get_or_create_server_id()
     print(f"Server ID: {local_server_id}")
+
+    # Auto-build any missing client binaries that can be built on this host
+    try:
+        import asyncio
+        from .client_builder import build_all_missing
+        build_results = await asyncio.to_thread(build_all_missing)
+        for plat, status in build_results.items():
+            print(f"  Client build [{plat}]: {status}")
+    except Exception as e:
+        print(f"WARNING: Client auto-build check failed: {e}")
+
+    # Pre-build client download packages so admin downloads are instant
+    try:
+        from .client_packager import prebuild_client_packages
+        async with database.AsyncSessionLocal() as _db:
+            _ss = await server_utils.get_server_settings(_db)
+            built = await prebuild_client_packages(_db, _ss, local_server_id)
+            if built:
+                print(f"Pre-built client packages: {built}")
+            else:
+                print("No client binaries found in dist/ — skipping package pre-build.")
+    except Exception as e:
+        print(f"WARNING: Client package pre-build failed: {e}")
+
     delete_routes = [
         route.path
         for route in app.routes
@@ -234,8 +268,32 @@ async def lifespan(app: FastAPI):
             name="crossword-scheduler",
         )
         print("Crossword scheduler started.")
+
+    # Start Java Scorch 2000 game server (port 4242) if java is available
+    scorch_proc = None
+    scorch_jar = settings.BASE_DIR / "static" / "scorch" / "ScorchServer.jar"
+    if scorch_jar.exists() and shutil.which("java"):
+        try:
+            scorch_proc = subprocess.Popen(
+                ["java", "-cp", str(scorch_jar), "scorchserver.ScorchServer"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            print(f"Scorch 2000 game server started (PID {scorch_proc.pid}, port 4242)")
+        except Exception as e:
+            print(f"WARNING: Could not start Scorch server: {e}")
+    elif scorch_jar.exists():
+        print("Scorch server JAR found but java not on PATH — skipping.")
+
     yield
     # Shutdown
+    if scorch_proc is not None:
+        scorch_proc.terminate()
+        try:
+            scorch_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            scorch_proc.kill()
+        print("Scorch 2000 game server stopped.")
     if crossword_scheduler_task is not None:
         crossword_scheduler_task.cancel()
         try:
@@ -255,6 +313,27 @@ app = FastAPI(
 @app.middleware("http")
 async def module_auth_guard(request: Request, call_next):
     path = request.url.path
+    if path == "/wikipedia" or path.startswith("/wikipedia/"):
+        detail = "Wikipedia is temporarily disabled while we investigate a stability issue."
+        accepts_html = "text/html" in (request.headers.get("accept", "") or "").lower()
+        if request.method.upper() == "GET" and accepts_html:
+            html = (
+                "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">"
+                "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+                f"<title>Wikipedia Disabled | {settings.NODE_NAME}</title>"
+                "<style>"
+                "body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#f8fafc;color:#1e293b;"
+                "display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;padding:24px;}"
+                ".card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:32px;max-width:520px;"
+                "box-shadow:0 10px 15px -3px rgb(0 0 0/.1);text-align:center;}"
+                "h1{margin:0 0 10px;font-size:1.4rem;}p{margin:0;color:#64748b;line-height:1.6;}"
+                "</style></head><body><div class=\"card\">"
+                "<h1>Wikipedia Is Temporarily Disabled</h1>"
+                f"<p>{detail}</p>"
+                "</div></body></html>"
+            )
+            return HTMLResponse(content=html, status_code=503)
+        return JSONResponse(status_code=503, content={"detail": detail})
 
     secure_mode_enabled, secure_domain = await _get_secure_mode_redirect_config()
     if secure_mode_enabled and secure_domain:
@@ -349,6 +428,8 @@ app.include_router(federation.router)
 if calendar:    app.include_router(calendar.router)
 if games:       app.include_router(games.router)
 if wikipedia:   app.include_router(wikipedia.router)
+if maps:        app.include_router(maps.router)
+if family_photos: app.include_router(family_photos.router)
 if discussions: app.include_router(discussions.router)
 if voice:       app.include_router(voice.router)
 if mail:        app.include_router(mail.router)
@@ -446,6 +527,20 @@ async def connect_server_page(
             "modules": active_modules,
             "active_modules": active_modules,
             "visible_module_bar_modules": visible_module_bar_modules,
+        },
+    )
+
+
+@app.get("/about", response_class=HTMLResponse)
+async def about_page(request: Request):
+    from fastapi.templating import Jinja2Templates
+
+    templates = Jinja2Templates(directory=str(settings.BASE_DIR / "templates"))
+    return templates.TemplateResponse(
+        request=request,
+        name="about.html",
+        context={
+            "platform_name": settings.PLATFORM_NAME,
         },
     )
 
@@ -631,7 +726,7 @@ async def web_request_join(payload: WebJoinRequest):
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return JSONResponse({"ok": False, "detail": f"Server error: {e}"}, status_code=500)
+        return JSONResponse({"ok": False, "detail": "An internal error occurred. Please try again later."}, status_code=500)
 
 
 @app.get("/.well-known/join-requests/{request_id}")
@@ -660,7 +755,8 @@ async def handshake_status(request_id: int, peer_server_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Status lookup failed: {e}")
+        import logging as _log; _log.getLogger(__name__).exception("Status lookup failed")
+        raise HTTPException(status_code=500, detail="Status lookup failed. Please try again later.")
 
 
 @app.post("/.well-known/password-reset-request")
@@ -707,7 +803,7 @@ async def password_reset_request(payload: PasswordResetPayload):
                 "detail": "Password reset request submitted. Awaiting admin approval.",
             }
     except Exception as e:
-        return {"ok": False, "detail": f"Failed to submit reset request: {e}"}
+        return {"ok": False, "detail": "Failed to submit reset request. Please try again later."}
 
 
 @app.get("/.well-known/password-reset-requests/{request_id}")
@@ -734,4 +830,5 @@ async def password_reset_status(request_id: int, peer_server_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Status lookup failed: {e}")
+        import logging as _log; _log.getLogger(__name__).exception("Password reset status lookup failed")
+        raise HTTPException(status_code=500, detail="Status lookup failed. Please try again later.")

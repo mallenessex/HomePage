@@ -83,6 +83,7 @@ function emptyServerEntry(label) {
     label: label || 'New Server',
     server_url: '',
     target_server_id: '',
+    user_renamed: false,
   };
 }
 
@@ -132,6 +133,7 @@ class ClientConfig {
         label: srv.label || 'Server',
         server_url: srv.server_url || '',
         target_server_id: srv.target_server_id || '',
+        user_renamed: !!srv.user_renamed,
       }));
       this.activeIndex = raw.active_server_index || 0;
     }
@@ -184,9 +186,11 @@ class ClientConfig {
   static _applySeedToEntry(entry, raw) {
     if (raw.server_url != null) entry.server_url = String(raw.server_url);
     if (raw.target_server_id != null) entry.target_server_id = String(raw.target_server_id);
-    const sid = entry.target_server_id || '';
-    const sname = raw.server_name || '';
-    entry.label = String(sname || sid.slice(0, 16) || 'Seeded Server');
+    if (!entry.user_renamed) {
+      const sid = entry.target_server_id || '';
+      const sname = raw.server_name || '';
+      entry.label = String(sname || sid.slice(0, 16) || 'Seeded Server');
+    }
   }
 
   _applySeedIfNeeded() {

@@ -1,0 +1,14 @@
+{
+  "name": "family_photos",
+  "version": "1",
+  "runtime": "podman-compose",
+  "compose_file": "podman-compose.yml",
+  "services": [],
+  "routes": [
+    {
+      "module_path": "/family-photos/",
+      "upstream": "http://localhost:8001/family-photos/"
+    }
+  ],
+  "install_policy": "manual"
+}

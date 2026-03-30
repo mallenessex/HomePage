@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Form, File, Uplo
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_
 from typing import Annotated, Optional
 from datetime import date
 
@@ -95,6 +96,88 @@ async def view_profile(
             "user": current_user
         }
     )
+
+@router.get("/{username}/media", response_class=HTMLResponse)
+async def view_profile_media(
+    username: str,
+    request: Request,
+    db: AsyncSession = Depends(database.get_db),
+    current_user: Optional[models.User] = Depends(auth.get_current_user_optional),
+):
+    """
+    Shows media posts for a profile with include/exclude controls for the owner.
+    """
+    from sqlalchemy.future import select
+
+    profile_user = await crud_users.get_user_by_username(db, username=username)
+    if not profile_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    media_res = await db.execute(
+        select(models.Post)
+        .where(
+            and_(
+                models.Post.author_id == profile_user.id,
+                models.Post.media_path.isnot(None),
+            )
+        )
+        .order_by(models.Post.created_at.desc())
+    )
+    media_posts = media_res.scalars().all()
+    is_owner = bool(current_user and current_user.id == profile_user.id)
+    active_modules = await server_utils.get_active_modules(db)
+    visible_module_bar_modules = server_utils.filter_visible_module_bar_modules(
+        active_modules,
+        current_user.module_bar_config if current_user else None,
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="profile_media.html",
+        context={
+            "profile_user": profile_user,
+            "media_posts": media_posts,
+            "is_owner": is_owner,
+            "node_name": settings.NODE_NAME,
+            "platform_name": settings.PLATFORM_NAME,
+            "user": current_user,
+            "active_modules": active_modules,
+            "visible_module_bar_modules": visible_module_bar_modules,
+        },
+    )
+
+
+@router.post("/posts/{post_id}/family-photos-toggle")
+async def toggle_family_photos_inclusion(
+    post_id: int,
+    include_in_family_photos: Annotated[str, Form(...)],
+    redirect_to: Annotated[Optional[str], Form()] = None,
+    current_user: Annotated[models.User, Depends(auth.get_current_user)] = None,
+    db: AsyncSession = Depends(database.get_db),
+):
+    """
+    Owner-only toggle for whether a media post appears in Family Photos.
+    """
+    from sqlalchemy.future import select
+
+    post_res = await db.execute(select(models.Post).where(models.Post.id == post_id))
+    post = post_res.scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    if not post.media_path:
+        raise HTTPException(status_code=400, detail="Post has no media")
+
+    include_normalized = str(include_in_family_photos).strip().lower()
+    include_value = include_normalized in {"1", "true", "yes", "on"}
+    post.include_in_family_photos = include_value
+    await db.commit()
+
+    safe_redirect = f"/users/{current_user.username}/media"
+    if redirect_to and redirect_to.startswith("/") and not redirect_to.startswith("//"):
+        safe_redirect = redirect_to
+    return RedirectResponse(url=safe_redirect, status_code=303)
 
 @router.get("/settings/profile", response_class=HTMLResponse)
 async def edit_profile_form(

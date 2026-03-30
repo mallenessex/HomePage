@@ -164,6 +164,9 @@ var ws = null, myPlayerId = null;
 var terrain = [], players = [], currentTurn = 0, wind = 0;
 var weapons = {}, items = {}, physics = {};
 var roundNumber = 1, maxRounds = 10;
+var autoJoinName = {{ (user.username if user else "")|tojson }};
+var autoJoinSent = false;
+var receivedFirstState = false;
 
 // ── Animation ──
 var projectiles = [], explosions = [], particles = [];
@@ -181,6 +184,15 @@ function connect() {
     ws = new WebSocket(proto + "//" + location.host + "/games/scorch/ws");
     ws.onmessage = function(e) { handleMessage(JSON.parse(e.data)); };
     ws.onclose = function() { setTimeout(connect, 2000); };
+    ws.onerror = function() {};
+}
+
+function tryAutoJoin() {
+    if (autoJoinName && !myPlayerId && !autoJoinSent && receivedFirstState) {
+        autoJoinSent = true;
+        document.getElementById("playerNameInput").value = autoJoinName;
+        joinGame();
+    }
 }
 
 function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
@@ -195,6 +207,10 @@ function handleMessage(msg) {
         roundNumber = msg.round_number || 1;
         maxRounds = msg.max_rounds || 10;
         updateUI(); render();
+        if (!receivedFirstState) {
+            receivedFirstState = true;
+            tryAutoJoin();
+        }
         break;
     case "joined_ack":
         myPlayerId = msg.player_id;
@@ -786,18 +802,6 @@ document.addEventListener("keydown", function(e){
 });
 
 connect();
-
-// Auto-join for logged-in users
-{% if user %}
-setTimeout(function(){
-    if (ws && ws.readyState === 1 && !myPlayerId) {
-        joinGame();
-    } else if (ws) {
-        var origOpen = ws.onopen;
-        ws.onopen = function() { if(origOpen) origOpen(); joinGame(); };
-    }
-}, 400);
-{% endif %}
 
 })();
 </script>

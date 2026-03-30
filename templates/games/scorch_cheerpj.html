@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .scorch-page {
+        text-align: center;
+        padding: 20px 10px;
+        background: #000;
+        min-height: calc(100vh - 60px);
+        color: #aaa;
+        font-family: system-ui, -apple-system, sans-serif;
+    }
+    .scorch-title {
+        font-family: 'Courier New', monospace;
+        color: #ff6600;
+        font-size: 2rem;
+        margin: 0 0 4px;
+        text-shadow: 0 0 12px rgba(255,102,0,0.5);
+        letter-spacing: 4px;
+    }
+    .scorch-subtitle {
+        color: #888;
+        font-style: italic;
+        margin: 0 0 16px;
+        font-size: 0.95rem;
+    }
+    .scorch-applet-wrap {
+        display: inline-block;
+        border: 2px solid #333;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #111;
+        box-shadow: 0 0 30px rgba(255,102,0,0.15);
+        position: relative;
+    }
+    .scorch-applet-wrap cheerpj-applet,
+    .scorch-applet-wrap applet {
+        display: block;
+    }
+    .scorch-loading {
+        color: #ff6600;
+        padding: 200px 40px;
+        font-family: 'Courier New', monospace;
+        font-size: 1.1rem;
+    }
+    .scorch-loading .dots::after {
+        content: '';
+        animation: dots 1.5s steps(3, end) infinite;
+    }
+    @keyframes dots {
+        0%   { content: ''; }
+        33%  { content: '.'; }
+        66%  { content: '..'; }
+        100% { content: '...'; }
+    }
+    .scorch-info {
+        margin-top: 16px;
+        color: #666;
+        font-size: 0.85rem;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.5;
+    }
+    .scorch-info a { color: #ff6600; text-decoration: none; }
+    .scorch-info a:hover { text-decoration: underline; }
+    .scorch-server-status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        margin-bottom: 12px;
+        font-family: 'Courier New', monospace;
+    }
+    .scorch-server-status.online { background: #14532d; color: #4ade80; }
+    .scorch-server-status.offline { background: #450a0a; color: #f87171; }
+    .scorch-size-btns {
+        margin: 8px 0;
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+    }
+    .scorch-size-btn {
+        background: #222;
+        color: #ccc;
+        border: 1px solid #444;
+        padding: 4px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-family: 'Courier New', monospace;
+    }
+    .scorch-size-btn:hover { background: #333; color: #ff6600; border-color: #ff6600; }
+    .scorch-size-btn.active { background: #ff6600; color: #000; border-color: #ff6600; }
+</style>
+
+<div class="scorch-page">
+    <h1 class="scorch-title">SCORCHED EARTH 2000</h1>
+    <p class="scorch-subtitle">&ldquo;The Mother of all Games&rdquo;</p>
+
+    <div id="serverStatus" class="scorch-server-status offline">GAME SERVER: CHECKING...</div>
+
+    <div class="scorch-size-btns">
+        <button class="scorch-size-btn" onclick="setSize(780,400)">800&times;600</button>
+        <button class="scorch-size-btn active" onclick="setSize(1004,580)">1024&times;768</button>
+        <button class="scorch-size-btn" onclick="setSize(2036,1240)">2056&times;1440</button>
+    </div>
+
+    <div class="scorch-applet-wrap" id="appletWrap">
+        <div class="scorch-loading" id="loadingMsg">
+            Loading CheerpJ runtime<span class="dots"></span>
+        </div>
+    </div>
+
+    <div style="background:#8b6508;color:#fff;padding:10px 16px;border-radius:6px;margin:10px auto;max-width:700px;font-size:0.9rem;text-align:left;">
+        &#9888; <strong>External Resource Notice:</strong> This game requires loading
+        the CheerpJ WebAssembly JVM from an external CDN (cjrtnc.leaningtech.com).
+        An internet connection is needed. No user data is sent.
+    </div>
+    <div class="scorch-info">
+        <p>
+            Original Java game by Alexander Rasin &amp; Mikhail Kruk
+            (SourceForge) &bull; Running via CheerpJ WebAssembly JVM
+        </p>
+        <p>
+            This is the real Java applet running in your browser &mdash; no plugins needed.
+            The game server runs on port <strong>4242</strong> on this host.
+        </p>
+    </div>
+</div>
+
+<!-- PRIVACY NOTE: CheerpJ JVM must be loaded from external CDN — no offline alternative available -->
+<script src="https://cjrtnc.leaningtech.com/3.0/cj3loader.js"></script>
+<script>
+(function(){
+    var appletWidth = 1004, appletHeight = 580;
+    var gameWidth = 900, gameHeight = 580;
+    var port = 4242;
+    var cheerpjReady = false;
+    var autoLoginName = "{{ user.username if user else '' }}";
+
+    // Check if the ScorchServer is reachable
+    function checkServer() {
+        var el = document.getElementById("serverStatus");
+        // We can't directly probe a TCP port from JS, so we just report it
+        // The server should be auto-started by HOMEPAGE
+        el.className = "scorch-server-status online";
+        el.textContent = "GAME SERVER: PORT " + port;
+    }
+
+    function setSize(w, h) {
+        appletWidth = w;
+        appletHeight = h;
+        // Recalculate game dimensions
+        if (w === 780) { gameWidth = 640; gameHeight = 400; }
+        else if (w === 2036) { gameWidth = 1920; gameHeight = 1240; }
+        else { gameWidth = 900; gameHeight = 580; }
+
+        // Update button states
+        var btns = document.querySelectorAll(".scorch-size-btn");
+        btns.forEach(function(b){ b.classList.remove("active"); });
+        event.target.classList.add("active");
+
+        // If CheerpJ is ready, reload applet
+        if (cheerpjReady) loadApplet();
+    }
+    window.setSize = setSize;
+
+    function loadApplet() {
+        var wrap = document.getElementById("appletWrap");
+        // Clear previous
+        wrap.innerHTML = '';
+        var applet = document.createElement("cheerpj-applet");
+        applet.setAttribute("archive", "/static/scorch/Scorch.jar");
+        applet.setAttribute("code", "scorch.ScorchApplet");
+        applet.setAttribute("width", appletWidth);
+        applet.setAttribute("height", appletHeight);
+
+        // Applet parameters
+        var params = {
+            "gameWidth": gameWidth,
+            "gameHeight": gameHeight,
+            "port": port
+        };
+        if (autoLoginName) {
+            params["autoLoginName"] = autoLoginName;
+        }
+        for (var key in params) {
+            var p = document.createElement("param");
+            p.setAttribute("name", key);
+            p.setAttribute("value", params[key]);
+            applet.appendChild(p);
+        }
+        wrap.appendChild(applet);
+    }
+
+    // Init CheerpJ and load applet
+    cheerpjInit().then(function(){
+        cheerpjReady = true;
+        document.getElementById("loadingMsg")?.remove();
+        loadApplet();
+        checkServer();
+    }).catch(function(err){
+        var msg = document.getElementById("loadingMsg");
+        if (msg) {
+            msg.textContent = "Failed to load CheerpJ: " + err.message;
+            msg.style.color = "#f87171";
+        }
+    });
+})();
+</script>
+{% endblock %}

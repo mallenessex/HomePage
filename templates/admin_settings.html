@@ -334,7 +334,7 @@
                         {% endif %}
                     </td>
                     <td><span class="badge">{{ req.status }}</span></td>
-                    <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '—' }}</td>
+                    <td>{{ join_request_created_display.get(req.id, '—') }}</td>
                     <td>
                         {% if req.status == 'pending' %}
                         <div style="display:flex; gap:8px;">
@@ -392,7 +392,7 @@
                     <td>{{ req.id }}</td>
                     <td><strong>@{{ req.username }}</strong></td>
                     <td><span class="badge">{{ req.status }}</span></td>
-                    <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '—' }}</td>
+                    <td>{{ password_reset_created_display.get(req.id, '—') }}</td>
                     <td>
                         {% if req.status == 'pending' %}
                         <div style="display:flex; gap:8px;">
