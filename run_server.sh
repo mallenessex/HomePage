@@ -36,7 +36,7 @@ fi
 
 LAN_IP=""
 if command -v hostname >/dev/null 2>&1; then
-  LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
 fi
 if [[ "${SECURE_MODE_ENABLED,,}" == "1" && -n "$SECURE_LOCAL_IP" ]]; then
   LAN_IP="$SECURE_LOCAL_IP"
@@ -53,6 +53,11 @@ fi
 APP_LAN_IP="${APP_LAN_IP:-${LAN_IP:-127.0.0.1}}"
 
 export APP_DOMAIN APP_LAN_IP APP_HTTP_PORT APP_HTTPS_PORT HF_HOST_OS
+
+ensure_runtime_dirs() {
+  mkdir -p "media"
+  mkdir -p "$(dirname "$RUNTIME_SECURE_ENV")"
+}
 
 stop_stale_fallback_listener() {
   local pids=""
@@ -98,6 +103,7 @@ run_route_preflight() {
 }
 
 stop_stale_fallback_listener
+ensure_runtime_dirs
 run_route_preflight
 
 echo "Checking for existing listeners on HTTPS port ${APP_PORT}..."
