@@ -50,6 +50,20 @@ PowerShell (cross-platform, optional):
 pwsh -File ./run_server.ps1
 ```
 
+Docker image:
+
+```bash
+docker build -t homepage-server .
+docker run --name homepage-server \
+  -p 8001:8001 \
+  -v homepage_media:/app/media \
+  -v homepage_data:/app/data \
+  -v homepage_dist:/app/dist \
+  homepage-server
+```
+
+The image is intentionally unlaunched and ships without `local.db`, `media/`, or `data/` contents. On first container start it creates fresh runtime directories and initializes a new server state.
+
 Behavior:
 - If Podman is available: starts containerized stack (`podman-compose.yml`)
 - Otherwise: falls back to local `uvicorn` on `http://127.0.0.1:8001`

@@ -225,15 +225,21 @@ async def lifespan(app: FastAPI):
     local_server_id = server_identity.get_or_create_server_id()
     print(f"Server ID: {local_server_id}")
 
-    # Auto-build any missing client binaries that can be built on this host
-    try:
-        import asyncio
-        from .client_builder import build_all_missing
-        build_results = await asyncio.to_thread(build_all_missing)
-        for plat, status in build_results.items():
-            print(f"  Client build [{plat}]: {status}")
-    except Exception as e:
-        print(f"WARNING: Client auto-build check failed: {e}")
+    # Containers and other constrained deploy targets can skip client auto-builds.
+    auto_build_disabled = os.getenv("HF_DISABLE_CLIENT_AUTOBUILD", "").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+    if auto_build_disabled:
+        print("Client auto-build disabled by HF_DISABLE_CLIENT_AUTOBUILD.")
+    else:
+        # Auto-build any missing client binaries that can be built on this host
+        try:
+            from .client_builder import build_all_missing
+            build_results = await asyncio.to_thread(build_all_missing)
+            for plat, status in build_results.items():
+                print(f"  Client build [{plat}]: {status}")
+        except Exception as e:
+            print(f"WARNING: Client auto-build check failed: {e}")
 
     # Pre-build client download packages so admin downloads are instant
     try:
